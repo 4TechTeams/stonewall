@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Stonewall">
+  <title>Stonewall</title>
+
+  <!-- badge -->
+  <rect width="128" height="128" fill="#1B2027"/>
+
+  <!-- wall: four staggered courses, mortar gaps let the background through -->
+  <g fill="#C8CDD4">
+    <!-- course 1 -->
+    <rect x="14" y="44" width="32" height="15"/>
+    <rect x="49" y="44" width="30" height="15" fill="#A9B1BA"/>
+    <rect x="82" y="44" width="32" height="15"/>
+    <!-- course 2 -->
+    <rect x="14" y="62" width="18" height="15" fill="#A9B1BA"/>
+    <rect x="35" y="62" width="38" height="15"/>
+    <rect x="76" y="62" width="38" height="15" fill="#8E97A1"/>
+    <!-- course 3 -->
+    <rect x="14" y="80" width="38" height="15"/>
+    <rect x="55" y="80" width="30" height="15" fill="#8E97A1"/>
+    <rect x="88" y="80" width="26" height="15" fill="#A9B1BA"/>
+    <!-- course 4 -->
+    <rect x="14" y="98" width="26" height="15" fill="#A9B1BA"/>
+    <rect x="43" y="98" width="38" height="15"/>
+    <rect x="84" y="98" width="30" height="15" fill="#8E97A1"/>
+  </g>
+
+  <!-- the merge request that doesn't get in -->
+  <path d="M22 15 L50 39 L98 15"
+        fill="none" stroke="#E4572E" stroke-width="8"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M84 12 L99 14 L97 29"
+        fill="none" stroke="#E4572E" stroke-width="8"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
