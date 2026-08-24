@@ -2,7 +2,7 @@
   <title>Stonewall</title>
 
   <!-- badge -->
-  <rect width="128" height="128" fill="#1B2027"/>
+  <rect width="128" height="128" rx="14" fill="#1B2027"/>
 
   <!-- wall: four staggered courses, mortar gaps let the background through -->
   <g fill="#C8CDD4">
