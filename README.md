@@ -15,18 +15,15 @@
 
 ## What it is
 
-Stonewall stops code slop before it gets merged. If a senior engineer would say "*no*", Stonewall says "*no*". Not
+Stonewall stops **code slop** before it gets merged. If a senior engineer would say "*no*", Stonewall says "*no*". Not
 guardrails. **Stone walls.**
 
-Your linter already passed this file. It compiles, the tests are green, and it still models a user ID as a `String`,
-hides a missing branch behind `else -> null`, and launches a coroutine that outlives the request that started it. None
-of that is a style violation. All of it should block the merge. AI writes this code faster than any team can review it.
+Imagine your linter passed, code compiles, tests are green. Still it models a date as a string, swallows errors, adds
+empty branch defaults, etc. AI agents can generate such issues way faster than your human team can review. This is where
+Stonewall holds:
 
-Stonewall reviews against rulesets that encode the arguments senior engineers actually have. Exhaustiveness.
-Nullability as a contract. Errors in the return type. Effects injected, never reached for. Ten rules for Kotlin today,
-each one written down with the reasoning, a checklist an agent can follow, and the fix.
-
-No severity levels. No "consider refactoring". A finding is a wall.
+It runs inside your coding agent and it is **honest**, **direct** and **ruthless**. No severity levels, no "consider
+refactoring", no "you're absolutely right". A finding is a wall.
 
 ## Install
 
@@ -46,24 +43,40 @@ planned.
 /stonewall:review
 ```
 
+Or just ask for it:
+
+> Do a stonewall review of src/main/kotlin
+
 Stonewall loads only the rulesets that match the files in scope.
 
-| Argument    | Scope                                                          |
-|-------------|----------------------------------------------------------------|
-| *omitted*   | Uncommitted changes. Same as `changeset`.                      |
-| `changeset` | Uncommitted changes.                                           |
-| `branch`    | Diff against the default branch (`main`, `master`, `develop`). |
-| *path*      | A directory or a file, reviewed in full.                       |
+| Scope       | What it covers                                                                     |
+|-------------|------------------------------------------------------------------------------------|
+| *nothing*   | `changeset` if anything is uncommitted, otherwise `branch`.                        |
+| `changeset` | Uncommitted changes, tracked and untracked.                                        |
+| `branch`    | Everything on this branch that is not on the default branch, uncommitted included. |
+| `full`      | Every tracked file in the repository. Same as a `.` path.                          |
+| *path*      | A directory or a file, reviewed in full.                                           |
 
 ```
 /stonewall:review changeset
 /stonewall:review branch
+/stonewall:review full
 /stonewall:review src/main/kotlin
 ```
 
-`changeset` and `branch` review a diff. A path reviews the files as they stand, whether you touched them or not.
+`branch` resolves the default branch from `origin/HEAD`, falling back to `main`, `master`, then `develop`, and diffs
+from the merge base. So it covers your committed branch work *and* anything still uncommitted.
 
-Findings are reported per rule ID, with the location and the mitigation from the ruleset.
+`changeset` and `branch` review a diff. `full` and a path review files as they stand, whether you touched them or not.
+
+The report opens with a checklist of every rule evaluated, then findings grouped by rule: each rule stated once, every
+occurrence listed under it, one mitigation.
+
+Stonewall writes one file, `.stonewall/status.md`, a live ledger of which files it has reviewed and what it found. It
+holds the same findings the other way round, by file rather than by rule. Keep it open to watch a long review.
+
+Find an existing ledger and Stonewall asks whether to resume from it or start over. The directory ignores itself, so it
+never dirties your repository. No source file is ever touched.
 
 ## Rulesets
 
@@ -98,7 +111,34 @@ Why a senior engineer cares.
 What to do instead.
 ```
 
-The ID is stable. Use it to reference a finding, suppress a rule, or track it over time.
+The ID is stable. Use it to reference a finding or track it over time.
+
+## Development
+
+Load the plugin straight from the working tree, no install:
+
+```
+claude --plugin-dir .
+```
+
+`/stonewall:review` then runs your local `skills/` and `rules/`.
+
+Validate before pushing. CI runs the same three:
+
+```
+claude plugin validate .claude-plugin/plugin.json --strict
+claude plugin validate .claude-plugin/marketplace.json --strict
+claude plugin validate skills --strict
+```
+
+To exercise the real install path:
+
+```
+claude plugin marketplace add ./
+claude plugin install stonewall@stonewall
+```
+
+A new language is one file in `rules/` with `id`, `name`, and `extensions` in its frontmatter. Nothing else changes.
 
 ## Contributing
 

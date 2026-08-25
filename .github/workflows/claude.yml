@@ -29,8 +29,8 @@ jobs:
       - name: Marketplace manifest
         run: claude plugin validate .claude-plugin/marketplace.json --strict
 
-      - name: Commands
-        run: claude plugin validate commands --strict
+      - name: Skills
+        run: claude plugin validate skills --strict
 
       - name: Install smoke test
         shell: bash
