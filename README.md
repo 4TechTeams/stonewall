@@ -4,28 +4,29 @@
 
 # Stonewall
 
-**Ruleset-driven code review that stops AI slop before it merges**
+**Your linter says pass. Stonewall says no.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-E4572E.svg?style=flat-square)](LICENSE)
 [![Build](https://img.shields.io/github/actions/workflow/status/4TechTeams/stonewall/build.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=build)](https://github.com/4TechTeams/stonewall/actions/workflows/build.yml)
 
 </div>
 
-
 ---
 
 ## What it is
 
-Stonewall is a plugin for coding agents. It reviews your code against explicit rulesets that encode what a senior
-engineer would reject.
+Stonewall stops code slop before it gets merged. If a senior engineer would say "*no*", Stonewall says "*no*". Not
+guardrails. **Stone walls.**
 
-Linters catch formatting and known bug patterns. They do not catch a `String` standing in for a domain identifier, a
-`when` whose `else` branch hides a missing case, or a coroutine launched outside any lifecycle. Stonewall does. If a
-senior engineer would say "*no*", the review says
-"*no*". Not guardrails. **Stone walls.**
+Your linter already passed this file. It compiles, the tests are green, and it still models a user ID as a `String`,
+hides a missing branch behind `else -> null`, and launches a coroutine that outlives the request that started it. None
+of that is a style violation. All of it should block the merge. AI writes this code faster than any team can review it.
 
-Rulesets are plain markdown. Every rule carries a stable ID, the reasoning behind it, a validation checklist, and a
-mitigation. Read them, fork them, argue with them.
+Stonewall reviews against rulesets that encode the arguments senior engineers actually have. Exhaustiveness.
+Nullability as a contract. Errors in the return type. Effects injected, never reached for. Ten rules for Kotlin today,
+each one written down with the reasoning, a checklist an agent can follow, and the fix.
+
+No severity levels. No "consider refactoring". A finding is a wall.
 
 ## Install
 
@@ -72,7 +73,14 @@ Findings are reported per rule ID, with the location and the mitigation from the
 | ![Java](https://img.shields.io/badge/Java-ED8B00?style=flat-square&logo=openjdk&logoColor=white)    | –     | Planned |
 | ![PHP](https://img.shields.io/badge/PHP-777BB4?style=flat-square&logo=php&logoColor=white)          | –     | Planned |
 
-Every rule follows the same shape:
+What Kotlin blocks today:
+
+`exhaustiveness` · `nullability-as-design` · `immutability-by-default` · `errors-as-values` · `type-driven-modeling` ·
+`structured-concurrency` · `explicit-api-surface` · `injected-effects` · `collection-discipline` ·
+`boundary-validation`
+
+Rulesets are plain markdown. Every rule carries a stable ID, the reasoning behind it, a validation checklist, and a
+mitigation. Read them, fork them, argue with them.
 
 ```markdown
 ## Errors as Values
