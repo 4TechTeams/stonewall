@@ -9,15 +9,20 @@ description: >
 # Stonewall review
 
 Review the code in scope against the Stonewall rulesets. Report violations. Change no source code.
-The one file Stonewall writes is its own ledger.
+The only files Stonewall writes are `.stonewall/status.md` and `.stonewall/.gitignore`.
 
 ## Step 1: locate the rulesets
 
-Rulesets are markdown files in the `rules/` directory at the root of this plugin, one file per
-language. That directory sits beside the `skills/` directory holding this file. If the environment
-variable `CLAUDE_PLUGIN_ROOT` is set, the path is `$CLAUDE_PLUGIN_ROOT/rules/`.
+Rulesets come from two places, and both count.
 
-List that directory and read the frontmatter of each file. Frontmatter looks like this:
+The built-in ones are markdown files in the `rulesets/` directory at the root of this plugin, one
+file per language. That directory sits beside the `skills/` directory holding this file. If the
+environment variable `CLAUDE_PLUGIN_ROOT` is set, the path is `$CLAUDE_PLUGIN_ROOT/rulesets/`.
+
+The project's own live in `.stonewall/rulesets/` at the repository root. That directory is optional.
+When it exists, every `.md` file in it is a ruleset and is treated exactly like a built-in one.
+
+List both directories and read the frontmatter of each file. Frontmatter looks like this:
 
     ---
     id: kotlin
@@ -26,6 +31,12 @@ List that directory and read the frontmatter of each file. Frontmatter looks lik
     ---
 
 Do not read the rule bodies yet.
+
+If a file carries no `id` or no `name`, name the file, say what is missing, and skip it. Do not
+guess a value. `extensions` is optional and Step 3 says what its absence means.
+
+If two rulesets declare the same `id`, stop and name both files. The `id` prefixes every rule ID in
+the report, so loading both would make every finding ambiguous.
 
 ## Step 2: resolve the scope
 
@@ -66,18 +77,25 @@ If the scope is still empty after resolving, say so and stop.
 ## Step 3: select rulesets
 
 Collect the file extensions in scope. Load every ruleset whose `extensions` list matches at least
-one of them, and read those files in full. Read no other ruleset.
+one of them, built-in and project alike, and read those files in full.
 
-If nothing matches, report which extensions were in scope and stop. Never review code against a
-ruleset for another language.
+A ruleset that declares no `extensions` is not tied to a language. Load it on every review, whatever
+is in scope, and apply it to every file.
+
+A project ruleset is not a replacement for a built-in one. When both match a file, both apply.
+
+If nothing matches and no ruleset is untied, report which extensions were in scope and stop. Never
+review code against a ruleset for another language.
 
 ## Step 4: open the ledger
 
-Stonewall writes one file, `.stonewall/status.md` at the repository root. That file is the live
+Stonewall keeps its ledger at `.stonewall/status.md` in the repository root. That file is the live
 progress display. The user can keep it open while the review runs, and it survives a lost session.
 
-If `.stonewall/` does not exist, create it and write `.stonewall/.gitignore` containing a single
-`*`, so the directory ignores itself and never dirties the repository.
+Assume `.stonewall/` exists and create it when it does not. Then write `.stonewall/.gitignore`
+containing a single line, `status.md`. Do this on every run, whether or not the directory was
+already there, because the user may have created it themselves to hold custom rulesets. Ignore only
+the ledger. Anything else under `.stonewall/` is the project's own and must stay committable.
 
 If `.stonewall/status.md` already exists, stop and ask the user whether to resume from it or start
 over. Never guess. On resume, keep the ticked files and evaluate only the unticked ones.

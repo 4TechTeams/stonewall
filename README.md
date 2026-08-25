@@ -16,15 +16,13 @@
 
 ## 🧱 What it is
 
-Stonewall stops **code slop** before it gets merged. If a senior engineer would say "*no*", Stonewall says "*no*". Not
-guardrails. **Stone walls.**
+Stonewall stops **code slop** before it gets merged. If a senior engineer would say "*no*", Stonewall says "*no*". It's
+not another fluffy review skill that tells you how right you are, but a stone wall in front of bad code.
 
 Imagine your linter passed, code compiles, tests are green. Still it models a date as a string, swallows errors, adds
-empty branch defaults, etc. AI agents can generate such issues way faster than your human team can review. This is where
-Stonewall holds:
+empty branch defaults, etc. AI agents can generate such issues way faster than your human team can review.
 
-It runs inside your coding agent and it is **honest**, **direct** and **ruthless**. No severity levels, no "consider
-refactoring", no "you're absolutely right". A finding is a wall.
+As a coding agent skill, it gives you **honest**, **direct** and **ruthless** feedback about your solutions. That's it.
 
 ## 📦 Install
 
@@ -73,46 +71,32 @@ from the merge base. So it covers your committed branch work *and* anything stil
 The report opens with a checklist of every rule evaluated, then findings grouped by rule: each rule stated once, every
 occurrence listed under it, one mitigation.
 
-Stonewall writes one file, `.stonewall/status.md`, a live ledger of which files it has reviewed and what it found. It
+Stonewall keeps a live ledger at `.stonewall/status.md`, recording which files it has reviewed and what it found. It
 holds the same findings the other way round, by file rather than by rule. Keep it open to watch a long review.
 
-Find an existing ledger and Stonewall asks whether to resume from it or start over. The directory ignores itself, so it
-never dirties your repository. No source file is ever touched.
+Find an existing ledger and Stonewall asks whether to resume from it or start over. A `.gitignore` beside it ignores the
+ledger and nothing else, so `.stonewall/` stays free for your own rulesets. No source file is ever touched.
 
 ## 📜 Rulesets
+
+Stonewall is based on specific rulesets per language. Some are rather generic, others are opinionated. Use, extend or
+change them:
 
 | Language                                                                                            | Rules | Status     |
 |-----------------------------------------------------------------------------------------------------|-------|------------|
 | ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=flat-square&logo=kotlin&logoColor=white) | 10    | ✅ Ready   |
 | ![Java](https://img.shields.io/badge/Java-ED8B00?style=flat-square&logo=openjdk&logoColor=white)    | –     | 🚧 Planned |
-| ![PHP](https://img.shields.io/badge/PHP-777BB4?style=flat-square&logo=php&logoColor=white)          | –     | 🚧 Planned |
+| ![PHP](https://img.shields.io/badge/PHP-777BB4?style=flat-square&logo=php&logoColor=white)          | 13    | ✅ Ready   |
 
-What Kotlin blocks today:
+Ruleset pull requests are highly welcome.
 
-`exhaustiveness` · `nullability-as-design` · `immutability-by-default` · `errors-as-values` · `type-driven-modeling` ·
-`structured-concurrency` · `explicit-api-surface` · `injected-effects` · `collection-discipline` ·
-`boundary-validation`
+### Custom Rules
 
-Rulesets are plain markdown. Every rule carries a stable ID, the reasoning behind it, a validation checklist, and a
-mitigation. Read them, fork them, argue with them.
+Need rules for internal standards, architecture decisions, or languages we don't cover yet?
 
-```markdown
-## Errors as Values
-
-**ID: `kotlin/errors-as-values`**
-
-Why a senior engineer cares.
-
-### How to validate
-
-- [ ] What to look for in the code.
-
-### Mitigation
-
-What to do instead.
-```
-
-The ID is stable. Use it to reference a finding or track it over time.
+Just drop a ruleset file in `.stonewall/rulesets/` and Stonewall loads it alongside its own. Give it an `id` of your
+own, since that prefixes every rule ID it reports and a clash with a built-in ruleset stops the review. Start from
+[the template](docs/templates/ruleset.md).
 
 ## 🛠️ Development
 
@@ -122,7 +106,7 @@ Load the plugin straight from the working tree, no install:
 claude --plugin-dir .
 ```
 
-`/stonewall:review` then runs your local `skills/` and `rules/`.
+Then use it by stating `/stonewall:review` or similar.
 
 Validate before pushing. CI runs the same three:
 
@@ -139,7 +123,7 @@ claude plugin marketplace add ./
 claude plugin install stonewall@stonewall
 ```
 
-A new language is one file in `rules/` with `id`, `name`, and `extensions` in its frontmatter. Nothing else changes.
+A new language just needs a file in `rulesets/` with `id`, `name`, and `extensions` in its frontmatter.
 
 ## 🤝 Contributing
 
