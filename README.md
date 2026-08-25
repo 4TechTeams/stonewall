@@ -8,12 +8,13 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-E4572E.svg?style=flat-square)](LICENSE)
 [![Build](https://img.shields.io/github/actions/workflow/status/4TechTeams/stonewall/build.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=build)](https://github.com/4TechTeams/stonewall/actions/workflows/build.yml)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-D97757?style=flat-square&logo=claude&logoColor=white)](#claude-code)
 
 </div>
 
 ---
 
-## What it is
+## 🧱 What it is
 
 Stonewall stops **code slop** before it gets merged. If a senior engineer would say "*no*", Stonewall says "*no*". Not
 guardrails. **Stone walls.**
@@ -25,9 +26,9 @@ Stonewall holds:
 It runs inside your coding agent and it is **honest**, **direct** and **ruthless**. No severity levels, no "consider
 refactoring", no "you're absolutely right". A finding is a wall.
 
-## Install
+## 📦 Install
 
-Claude Code:
+### Claude Code
 
 ```
 /plugin marketplace add 4TechTeams/stonewall
@@ -37,7 +38,7 @@ Claude Code:
 Rulesets are plain markdown with no Claude Code specifics. Wrappers for other agents such as Cursor and Codex are
 planned.
 
-## Usage
+## ⚡ Usage
 
 ```
 /stonewall:review
@@ -78,13 +79,13 @@ holds the same findings the other way round, by file rather than by rule. Keep i
 Find an existing ledger and Stonewall asks whether to resume from it or start over. The directory ignores itself, so it
 never dirties your repository. No source file is ever touched.
 
-## Rulesets
+## 📜 Rulesets
 
-| Language                                                                                            | Rules | Status  |
-|-----------------------------------------------------------------------------------------------------|-------|---------|
-| ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=flat-square&logo=kotlin&logoColor=white) | 10    | Ready   |
-| ![Java](https://img.shields.io/badge/Java-ED8B00?style=flat-square&logo=openjdk&logoColor=white)    | –     | Planned |
-| ![PHP](https://img.shields.io/badge/PHP-777BB4?style=flat-square&logo=php&logoColor=white)          | –     | Planned |
+| Language                                                                                            | Rules | Status     |
+|-----------------------------------------------------------------------------------------------------|-------|------------|
+| ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=flat-square&logo=kotlin&logoColor=white) | 10    | ✅ Ready   |
+| ![Java](https://img.shields.io/badge/Java-ED8B00?style=flat-square&logo=openjdk&logoColor=white)    | –     | 🚧 Planned |
+| ![PHP](https://img.shields.io/badge/PHP-777BB4?style=flat-square&logo=php&logoColor=white)          | –     | 🚧 Planned |
 
 What Kotlin blocks today:
 
@@ -113,7 +114,7 @@ What to do instead.
 
 The ID is stable. Use it to reference a finding or track it over time.
 
-## Development
+## 🛠️ Development
 
 Load the plugin straight from the working tree, no install:
 
@@ -140,12 +141,12 @@ claude plugin install stonewall@stonewall
 
 A new language is one file in `rules/` with `id`, `name`, and `extensions` in its frontmatter. Nothing else changes.
 
-## Contributing
+## 🤝 Contributing
 
 Issues and pull requests are welcome. New rulesets and new rules are the highest-value contributions. A rule needs a
 stable ID, a reason a senior engineer would reject the code, a checklist an agent can follow, and a concrete mitigation.
 
-## License
+## ⚖️ License
 
 Released under the [MIT License](LICENSE) © 4TechTeams.
 
