@@ -202,7 +202,7 @@ func launch(args []string, policyPath string, dryRun bool) error {
 	case "linux":
 		bwrap, err := exec.LookPath("bwrap")
 		if err != nil {
-			return fail(errors.New("bwrap not found: install the bubblewrap package"))
+			return fail(errors.New("bubblewrap is required on Linux and was not found on PATH. Install it with your package manager: apt install bubblewrap, dnf install bubblewrap, or pacman -S bubblewrap"))
 		}
 		cmd = exec.Command(bwrap, sandbox.BwrapArgs(plan)...)
 		backend = "bwrap"

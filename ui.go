@@ -149,9 +149,6 @@ func (u ui) help() string {
 	fmt.Fprintln(&b, strings.Repeat(" ", 22)+"changed ones and ask before replacing them")
 	b.WriteString("\n")
 
-	b.WriteString("  The agent itself must be allowed. The first run shows the proposed file and asks before writing it.\n")
-	b.WriteString("  Linux needs bubblewrap (apt install bubblewrap). macOS needs nothing.\n\n")
-
 	fmt.Fprintf(&b, "  %s\n", dim("https://github.com/4TechTeams/stonewall"))
 
 	return b.String()
