@@ -1,0 +1,37 @@
+####################################################################################
+# stonewall.sh base policy                                                         #
+#                                                                                  #
+# https://stonewall.sh/policy/base.yml                                             #
+#                                                                                  #
+# Provides a bare-minimum safety net for any project. It intentionally does NOT    Ç‡
+# include anything language-, framework- or agent-specific rules, and no tools     #
+# that write, delete, commit or run other programs.                                #
+#                                                                                  #
+# This is an official stonewall.sh policy and should not be changed locally.       #
+# Please always review remote policies before applying them. Stonewall and its     #
+# policies come without warranty of any kind. See LICENSE for details.             #
+####################################################################################
+project:
+  readonly:
+    - .git
+  hidden:
+    - .env
+    - secrets
+bin:
+  allowed:
+    - ls
+    - cat
+    - head
+    - tail
+    - grep
+    - wc
+    - sort
+    - uniq
+    - tr
+    - cut
+    - diff
+    - stat
+    - file
+expose:
+  write:
+    - /tmp
