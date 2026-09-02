@@ -17,8 +17,8 @@
 
 ## 🧱 What it is
 
-Stonewall is a lightweight local sandbox for AI coding agents, drastically limiting access to tools, paths and project
-files.
+Stonewall is a local sandbox for AI coding agents, drastically limiting access to tools, paths and project files, based
+on strictly enforced policies.
 
 ```
 stonewall claude
@@ -40,16 +40,16 @@ sandbox.
 ### Project Directories and Files
 
 Inside the project, the agent works as usual, except where the policy says otherwise. Mark `.git` read-only and the
-agent can read history but never commit, reset or rewrite it. Mark `.env` or `secrets/` hidden and the agent cannot
-read them at all, no matter how politely it asks. Stop worrying about a stray `git push --force` or a leaked API key:
+agent can read history but never commit, reset or rewrite it. Mark `.env` or `secrets/` hidden and the agent cannot read
+them at all, no matter how politely it asks. Stop worrying about a stray `git push --force` or a leaked API key:
 the kernel refuses, not the agent.
 
 ### Files outside the Project
 
-Outside the project there is nothing to see. Your home directory does not exist for the agent: `~/.ssh`, `~/.aws`,
-your shell history, your other projects, all gone. Only what the policy explicitly exposes comes back, read-only or
-read-write, such as the agent's own settings under `~/.claude`. System directories stay readable so the allowed
-tools keep working.
+Outside the project there is nothing to see. Your home directory does not exist for the agent: `~/.ssh`, `~/.aws`, your
+shell history, your other projects, all gone. Only what the policy explicitly exposes comes back, read-only or
+read-write, such as the agent's own settings under `~/.claude`. System directories stay readable so the allowed tools
+keep working.
 
 ## 📦 Install
 
@@ -93,9 +93,43 @@ The project root is the nearest directory upwards holding `.stonewall.yml` or `.
 can launch from a subdirectory; the agent starts there. Stonewall refuses to run when the root is your home directory or
 `/`, and prints the root and policy file it uses on every launch.
 
+## 📜 Policy
+
+`.stonewall.yml` at the project root contains all rules applied. Policies can be included locally and from remote
+sources.
+
+Example ploicy of a Node project that lets Claude Code build, test and commit:
+
+```yaml
+include:
+  - https://stonewall.sh/policy/base.yml    # .git read-only, .env and secrets hidden, read-only tools
+  - https://stonewall.sh/policy/claude.yml  # claude, node, the keychain login, ~/.claude
+project:
+  hidden:
+    - .env.local        # base.yml hides .env, this project also has local overrides
+  writable:
+    - .git              # base.yml makes .git read-only, this project wants commits from the agent
+bin:
+  allowed:
+    - sh                # Claude Code's Bash tool needs a shell. This widens the sandbox considerably.
+    - git
+    - npm
+    - npx
+expose:
+  write:
+    - ~/.npm            # npm's cache
+```
+
+Included policies apply first, your own rules last. Remote policies are reviewed once, then cached in
+`.stonewall/policies/`. Run `stonewall policy update` to fetch new versions.
+
+See the [available official policies](./policies) you can include in your project.
+
+## ⚙️ How it Works
+
 Inside the sandbox:
 
-| Path                         | Linux (bubblewrap)                       | macOS (sandbox-exec)            |
+| Path                         | Linux (`bubblewrap`)                     | macOS (`sandbox-exec`)          |
 |------------------------------|------------------------------------------|---------------------------------|
 | Project                      | read-write                               | read-write                      |
 | `project.readonly` entries   | mounted read-only                        | writes denied                   |
@@ -127,38 +161,6 @@ allowlisted interpreter such as `bash` or `python` can run anything. No shipped 
   input injection open.
 - Tools that rewrite an `expose.read` file, such as `git config --global`, fail.
 - Not yet: network isolation, seccomp, process-exec allowlisting on macOS, hiding file names on macOS.
-
-## 📜 Policy
-
-`.stonewall.yml` at the project root contains all rules applied. Policies can be included locally and from remote 
-sources.
-
-Example ploicy of a Node project that lets Claude Code build, test and commit:
-
-```yaml
-include:
-  - https://stonewall.sh/policy/base.yml    # .git read-only, .env and secrets hidden, read-only tools
-  - https://stonewall.sh/policy/claude.yml  # claude, node, the keychain login, ~/.claude
-project:
-  hidden:
-    - .env.local        # base.yml hides .env, this project also has local overrides
-  writable:
-    - .git              # base.yml makes .git read-only, this project wants commits from the agent
-bin:
-  allowed:
-    - sh                # Claude Code's Bash tool needs a shell. This widens the sandbox considerably.
-    - git
-    - npm
-    - npx
-expose:
-  write:
-    - ~/.npm            # npm's cache
-```
-
-Included policies apply first, your own rules last. Remote policies are reviewed once, then cached in
-`.stonewall/policies/`. Run `stonewall policy update` to fetch new versions.
-
-See the [available official policies](./policies) you can include in your project.
 
 ## 🛠️ Development
 
