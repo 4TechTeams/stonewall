@@ -1,0 +1,31 @@
+###############################################################################
+# stonewall.sh Sandbox Policy for Coding Agents                               #
+#                                                                             #
+# See https://stonewall.sh or run `stonewall --help` for details              #
+###############################################################################
+
+include:
+{{- range .Includes }}
+  - {{ . }}
+{{- end }}
+# Included policies apply first, then the local rules in this file. Order of application matters, last wins.
+#
+# project:               # paths inside the project, relative to this file
+#   readonly:            # the agent can read these but not change them
+#     - .git
+#   hidden:              # the agent cannot read these at all
+#     - .env
+#   writable:            # works as an override of before hidden / readonly paths, i.e. in remote policies
+#     - docs
+# bin:
+#   allowed:             # programs the agent may run. A shell or interpreter (bash, python) lets it run anything.
+#     - make
+#   denied:              # works as an override of before allowed binaries, i.e. in remote policies
+#     - bash
+# expose:                # paths outside the project. Your home directory is hidden unless listed here.
+#   read:                # the agent can read these
+#     - ~/.npm
+#   write:               # the agent can read and change these
+#     - ~/.cache
+#   none:                # works as an override of before exposed paths, i.e. in remote policies
+#     - ~/.npm

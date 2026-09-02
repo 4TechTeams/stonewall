@@ -3,12 +3,14 @@ package policy
 
 import (
 	"bytes"
+	_ "embed"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"gopkg.in/yaml.v3"
 )
@@ -90,34 +92,22 @@ func Parse(b []byte) (Policy, error) {
 }
 
 // Scaffold returns the policy proposed for a project whose first launch runs agent.
+//
+//go:embed scaffold.yml
+var scaffoldYML string
+
+// Scaffold renders scaffold.yml for a project whose first launch runs agent: the base policy, plus the
+// Claude Code policy when the agent is claude.
 func Scaffold(agent string) string {
-	inc := "  - https://stonewall.sh/policy/base.yml\n"
+	includes := []string{"https://stonewall.sh/policy/base.yml"}
 	if strings.HasPrefix(filepath.Base(agent), "claude") {
-		inc += "  - https://stonewall.sh/policy/claude.yml\n"
+		includes = append(includes, "https://stonewall.sh/policy/claude.yml")
 	}
-	return `# Stonewall sandbox policy. Nothing outside this file and its includes is ever allowed.
-# Includes are applied in order; this file is applied last and wins.
-include:
-` + inc + `# project:               # paths relative to this file
-#   readonly:
-#     - .git
-#   hidden:              # content unreadable inside the sandbox
-#     - .env
-#   writable:            # undo an included hidden/readonly rule
-#     - docs
-# bin:
-#   allowed:             # programs on PATH. Interpreters (bash, python) weaken this.
-#     - make
-#   denied:              # remove a program an include allowed
-#     - bash
-# expose:                # host paths outside the project, ~/ or absolute. $HOME is hidden otherwise.
-#   read:
-#     - ~/.npm
-#   write:               # read-write
-#     - ~/.cache
-#   none:                # remove an exposure an include granted
-#     - ~/.npm
-`
+	var b strings.Builder
+	if err := template.Must(template.New("scaffold").Parse(scaffoldYML)).Execute(&b, struct{ Includes []string }{includes}); err != nil {
+		panic(err) // the template is embedded and fixed
+	}
+	return b.String()
 }
 
 // WriteScaffold creates path holding content. It fails if path exists.
