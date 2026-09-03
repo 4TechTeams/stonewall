@@ -154,7 +154,7 @@ func TestRemoteIncludeRejected(t *testing.T) {
 	srv := newPolicyServer(t, "bin:\n  allowed: [git]\n")
 	path, now := fixture(t, srv)
 	a := &asker{answer: false}
-	if _, _, err := loader(srv, a, now).Load(path); err == nil || !strings.Contains(err.Error(), "rejected") {
+	if _, _, err := loader(srv, a, now).Load(path); err == nil || !strings.Contains(err.Error(), "not trusted") {
 		t.Fatalf("unreviewed policy accepted: %v", err)
 	}
 }
@@ -296,7 +296,7 @@ func TestUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res) != 1 || res[0].Status != "kept" {
+	if len(res) != 1 || res[0].Status != Kept {
 		t.Fatalf("refused update: %+v", res)
 	}
 	if readFile(t, cacheOf(body)) != body {
@@ -310,7 +310,7 @@ func TestUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res) != 1 || res[0].Status != "updated" {
+	if len(res) != 1 || res[0].Status != Updated {
 		t.Fatalf("accepted update: %+v", res)
 	}
 	if len(a.titles) != 1 || !strings.Contains(a.titles[0], "changed") {
@@ -465,5 +465,121 @@ func TestNoLockWithoutRemotes(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".stonewall")); !os.IsNotExist(err) {
 		t.Fatalf(".stonewall created without remote policies (err=%v)", err)
+	}
+}
+
+func TestAddInclude(t *testing.T) {
+	for _, c := range []struct{ name, in, inc, want string }{
+		{"appends to the list", "# head\ninclude:\n  - a.yml # x\n\nbin:\n  allowed: [sh]\n", "b.yml", "# head\ninclude:\n  - a.yml # x\n  - b.yml\n\nbin:\n  allowed: [sh]\n"},
+		{"empty list gets the first item", "include:\nbin:\n  allowed: [sh]\n", "b.yml", "include:\n  - b.yml\nbin:\n  allowed: [sh]\n"},
+		{"keeps the item indent", "include:\n    - a.yml\n", "b.yml", "include:\n    - a.yml\n    - b.yml\n"},
+		{"adds the key after the header", "# head\n\nbin:\n  allowed: [sh]\n", "b.yml", "# head\n\ninclude:\n  - b.yml\nbin:\n  allowed: [sh]\n"},
+		{"adds the key to an empty file", "", "b.yml", "include:\n  - b.yml\n"},
+		{"list at the end without newline", "include:\n  - a.yml", "b.yml", "include:\n  - a.yml\n  - b.yml\n"},
+		{"already listed", "include:\n  - 'b.yml'\n", "b.yml", "include:\n  - 'b.yml'\n"},
+		{"flow style is refused", "include: [a.yml]\n", "b.yml", "include: [a.yml]\n"},
+	} {
+		path := filepath.Join(t.TempDir(), FileName)
+		if err := os.WriteFile(path, []byte(c.in), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		added, err := AddInclude(path, c.inc)
+		switch c.name {
+		case "already listed":
+			if added || err != nil {
+				t.Errorf("%s: added=%v err=%v", c.name, added, err)
+			}
+		case "flow style is refused":
+			if added || err == nil {
+				t.Errorf("%s: added=%v err=%v", c.name, added, err)
+			}
+		default:
+			if !added || err != nil {
+				t.Errorf("%s: added=%v err=%v", c.name, added, err)
+			}
+		}
+		if got := readFile(t, path); got != c.want {
+			t.Errorf("%s:\n%q\nwant:\n%q", c.name, got, c.want)
+		}
+	}
+}
+
+func TestRemoveInclude(t *testing.T) {
+	in := "# head\ninclude:\n  - a.yml # x\n  # note\n  - 'b.yml'\nexpose:\n  read:\n    - b.yml\n"
+	for _, c := range []struct {
+		inc, want string
+		removed   bool
+	}{
+		{"a.yml", "# head\ninclude:\n  # note\n  - 'b.yml'\nexpose:\n  read:\n    - b.yml\n", true},
+		{"b.yml", "# head\ninclude:\n  - a.yml # x\n  # note\nexpose:\n  read:\n    - b.yml\n", true}, // only the include, not the exposed path
+		{"c.yml", in, false},
+	} {
+		path := filepath.Join(t.TempDir(), FileName)
+		if err := os.WriteFile(path, []byte(in), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		removed, err := RemoveInclude(path, c.inc)
+		if err != nil || removed != c.removed {
+			t.Errorf("remove %s: removed=%v err=%v", c.inc, removed, err)
+		}
+		if got := readFile(t, path); got != c.want {
+			t.Errorf("remove %s:\n%q\nwant:\n%q", c.inc, got, c.want)
+		}
+	}
+}
+
+// Include adds the line and runs the update: a refusal leaves the line, the lock and cache stay untouched.
+// Remove takes the line, the lock entry and the cache file away.
+func TestIncludeAndRemove(t *testing.T) {
+	body := "bin:\n  allowed: [git]\n"
+	srv := newPolicyServer(t, body)
+	path := filepath.Join(t.TempDir(), FileName)
+	if err := os.WriteFile(path, []byte("bin:\n  allowed: [sh]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	now := epoch
+	a := &asker{answer: false}
+	l := loader(srv, a, &now)
+	dir := filepath.Dir(path)
+	lockFile := filepath.Join(dir, ".stonewall", "policies", "lock.yml")
+	cache := filepath.Join(dir, ".stonewall", "policies", "cache", "claude-"+digest([]byte(body))+".yml")
+
+	added, res, err := l.Include(path, srv.url())
+	if !added || len(res) != 1 || res[0].Status != Untrusted || !strings.Contains(err.Error(), "not trusted") {
+		t.Fatalf("refused include: added=%v res=%+v err=%v", added, res, err)
+	}
+	if got := readFile(t, path); got != "include:\n  - "+srv.url()+"\nbin:\n  allowed: [sh]\n" {
+		t.Errorf("file after refused include:\n%q", got)
+	}
+	if exists(lockFile) || exists(cache) {
+		t.Error("refused include left a lock or cache")
+	}
+
+	a.answer = true
+	if added, res, err := l.Include(path, srv.url()); added || err != nil || res != nil {
+		t.Errorf("second include: added=%v res=%+v err=%v", added, res, err)
+	}
+	if _, _, err := l.Load(path); err != nil { // the launch after the refusal: asks again, trusted now
+		t.Fatal(err)
+	}
+	if !exists(lockFile) || !exists(cache) {
+		t.Fatal("trusted include not cached")
+	}
+	if added, _, err := l.Include(path, "missing.yml"); added || err == nil {
+		t.Errorf("missing local include: added=%v err=%v", added, err)
+	}
+
+	removed, err := Remove(path, srv.url())
+	if !removed || err != nil {
+		t.Fatalf("remove: removed=%v err=%v", removed, err)
+	}
+	if got := readFile(t, path); got != "include:\nbin:\n  allowed: [sh]\n" {
+		t.Errorf("file after remove:\n%q", got)
+	}
+	if exists(lockFile) || exists(cache) {
+		t.Error("remove left the lock or cache behind")
+	}
+	if removed, err := Remove(path, srv.url()); removed || err != nil {
+		t.Errorf("second remove: removed=%v err=%v", removed, err)
 	}
 }

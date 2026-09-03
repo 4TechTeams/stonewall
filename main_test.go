@@ -23,6 +23,21 @@ func TestRootCmd(t *testing.T) {
 		}
 	})
 
+	t.Run("subcommand help comes from its definition", func(t *testing.T) {
+		var stdout bytes.Buffer
+		cmd := newRootCmd()
+		cmd.SetOut(&stdout)
+		cmd.SetArgs([]string{"policy", "include", "--help"})
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		for _, want := range []string{"USAGE", "stonewall policy include <url|path>", "GLOBAL OPTIONS", "--policy FILE"} {
+			if !strings.Contains(stdout.String(), want) {
+				t.Errorf("subcommand help missing %q:\n%s", want, stdout.String())
+			}
+		}
+	})
+
 	t.Run("--help prints help", func(t *testing.T) {
 		cmd := newRootCmd()
 		var stdout, stderr bytes.Buffer
@@ -48,7 +63,7 @@ func TestRootCmd(t *testing.T) {
 		}
 	})
 
-	t.Run("first run refused writes no policy", func(t *testing.T) {
+	t.Run("first run writes the policy without asking", func(t *testing.T) {
 		dir := t.TempDir()
 		if err := os.Mkdir(filepath.Join(dir, ".git"), 0o755); err != nil {
 			t.Fatal(err)
@@ -61,19 +76,17 @@ func TestRootCmd(t *testing.T) {
 		if err := os.Chdir(dir); err != nil {
 			t.Fatal(err)
 		}
-		stdin = strings.NewReader("n\n")
+		stdin = strings.NewReader("n\n") // decline the remote includes the scaffold pulls in
 		defer func() { stdin = os.Stdin }()
 
 		cmd := newRootCmd()
 		cmd.SetOut(&bytes.Buffer{})
 		cmd.SetErr(&bytes.Buffer{})
 		cmd.SetArgs([]string{"--plain", "-n", "sh", "-c", "true"})
-		err = cmd.Execute()
-		if err == nil || !strings.Contains(err.Error(), "aborted") {
-			t.Fatalf("expected an abort error, got %v", err)
-		}
-		if _, err := os.Stat(filepath.Join(dir, ".stonewall.yml")); !os.IsNotExist(err) {
-			t.Error("policy written after the user said no")
+		_ = cmd.Execute() // fails on the untrusted includes; the scaffold must be on disk regardless
+		b, err := os.ReadFile(filepath.Join(dir, ".stonewall.yml"))
+		if err != nil || !strings.Contains(string(b), "include:") {
+			t.Fatalf("scaffold not written: %v", err)
 		}
 	})
 

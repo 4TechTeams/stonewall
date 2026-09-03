@@ -62,22 +62,14 @@ else
 	echo "FAIL  --dry-run"; fail=1
 fi
 
-# The scaffold is offered, not imposed. Accepting it writes the file; the launch then still fails,
-# because the scaffold's remote includes cannot be resolved yet. Fail closed, so ignore the exit.
+# The first run writes the scaffold without asking; the launch then still fails, because the scaffold's remote
+# includes are not trusted yet. Fail closed, so ignore the exit.
 mkdir -p "$TMP/fresh/.git" "$TMP/fresh/sub"
-(cd "$TMP/fresh/sub" && printf 'y\n' | "$BIN" --plain sh -c true) >/dev/null 2>&1 || true
+(cd "$TMP/fresh/sub" && "$BIN" --plain sh -c true) >/dev/null 2>&1 </dev/null || true
 if grep -q '^include:' "$TMP/fresh/.stonewall.yml" 2>/dev/null && grep -q 'stonewall.sh/policy/base.yml' "$TMP/fresh/.stonewall.yml"; then
-	echo "ok    accepted first run scaffolds .stonewall.yml at the project root"
+	echo "ok    first run scaffolds .stonewall.yml at the project root"
 else
-	echo "FAIL  scaffold accepted"; fail=1
-fi
-
-mkdir -p "$TMP/refused/.git"
-got=0; (cd "$TMP/refused" && printf 'n\n' | "$BIN" --plain sh -c true) >/dev/null 2>&1 || got=1
-if [ "$got" = 1 ] && [ ! -e "$TMP/refused/.stonewall.yml" ]; then
-	echo "ok    refused first run writes nothing"
-else
-	echo "FAIL  scaffold refused (exit $got)"; fail=1
+	echo "FAIL  scaffold"; fail=1
 fi
 
 got=0; (cd "$PROJ" && "$BIN" sh -c 'exit 7') >/dev/null 2>&1 || got=$?

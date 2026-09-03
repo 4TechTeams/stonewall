@@ -39,13 +39,21 @@ type lockEntry struct {
 // UpdateResult reports what happened to one remote include during Update.
 type UpdateResult struct {
 	URL    string
-	Status string // "updated" | "up to date" | "kept" | "failed"
+	Status string // Updated | UpToDate | Kept | NotTrusted | Failed
 	Err    error
 }
 
-// Update refreshes every remote include of the policy at path: unchanged content refreshes the fetch time,
-// changed content is shown as a diff against the cached version and asked about, rejected changes keep the old
-// version. It clears any snooze. One result per URL; err is non-nil when any URL failed.
+const (
+	Updated   = "updated"     // new or changed content, trusted and cached
+	UpToDate  = "up to date"  // same content as the lock; a missing cache file is restored
+	Kept      = "kept"        // changed content refused, the cached version stays
+	Untrusted = "not trusted" // new content refused, nothing cached
+	Failed    = "failed"      // could not be fetched or is not a policy
+)
+
+// Update is the one place remote policies are fetched, reviewed and cached. It goes through every remote
+// include of the policy at path: same content as the lock is up to date, new or changed content is asked
+// about and recorded on yes. It clears any snooze. One result per URL; err is Problem(results).
 func (l Loader) Update(path string) ([]UpdateResult, error) {
 	local, err := Load(path)
 	if err != nil {
@@ -59,16 +67,56 @@ func (l Loader) Update(path string) ([]UpdateResult, error) {
 	if err := r.save(); err != nil {
 		return results, err
 	}
-	failed := 0
+	return results, Problem(results)
+}
+
+// Problem is the first result that leaves an include unusable: a refused new policy as NotTrusted, a failed
+// fetch as its error. Nil when every include resolved.
+func Problem(results []UpdateResult) error {
 	for _, res := range results {
-		if res.Status == "failed" {
-			failed++
+		switch res.Status {
+		case Untrusted:
+			return NotTrusted{res.URL}
+		case Failed:
+			return fmt.Errorf("include %s: %w", res.URL, res.Err)
 		}
 	}
-	if failed > 0 {
-		return results, fmt.Errorf("%d of %d remote policies could not be updated", failed, len(results))
+	return nil
+}
+
+// Include adds inc to the include list of the policy at path, then runs Update so a new remote policy is
+// reviewed now rather than at the next launch. A local inc must exist. It reports whether inc was new.
+func (l Loader) Include(path, inc string) (bool, []UpdateResult, error) {
+	if !strings.Contains(inc, "://") {
+		if _, _, err := readLocalInclude(path, inc); err != nil {
+			return false, nil, err
+		}
 	}
-	return results, nil
+	added, err := AddInclude(path, inc)
+	if err != nil || !added {
+		return added, nil, err
+	}
+	results, err := l.Update(path)
+	return true, results, err
+}
+
+// Remove drops inc from the include list of the policy at path together with its lock entry and cache file.
+// It reports whether inc was listed.
+func Remove(path, inc string) (bool, error) {
+	removed, err := RemoveInclude(path, inc)
+	if err != nil || !removed || !strings.Contains(inc, "://") {
+		return removed, err
+	}
+	r, err := Loader{}.resolver(path)
+	if err != nil {
+		return true, err
+	}
+	if entry, ok := r.lock.Policies[inc]; ok {
+		os.Remove(r.cacheFile(inc, entry.SHA256))
+		delete(r.lock.Policies, inc)
+		r.dirty = true
+	}
+	return true, r.save()
 }
 
 // resolve carries the state of one Load or Update: the lock file, whether it changed, and the local files
@@ -148,53 +196,45 @@ func remoteURLs(list []string) []string {
 	return out
 }
 
-// remote returns the policy for an https include: from the cache when the lock vouches for it, otherwise
-// downloaded, shown and confirmed. Anything unverified aborts the launch.
+// remote returns the policy for an https include from the cache, which only Update fills. An include without a
+// lock entry was refused or never reviewed; a lock entry without its file needs Update to restore it.
 func (r *resolve) remote(inc string) (Policy, error) {
 	u, err := remoteURL(inc)
 	if err != nil {
 		return Policy{}, err
 	}
 	entry, locked := r.lock.Policies[u]
-	if locked {
-		cached := r.cacheFile(u, entry.SHA256)
-		b, err := os.ReadFile(cached)
-		switch {
-		case err == nil:
-			if digest(b) != entry.SHA256 {
-				return Policy{}, fmt.Errorf("include %s: cache file %s does not match lock.yml (tampered or corrupt); run 'stonewall policy update'", inc, cached)
-			}
-			r.files = append(r.files, cached)
-			return parseInclude(inc, b)
-		case !errors.Is(err, fs.ErrNotExist):
-			return Policy{}, fmt.Errorf("include %s: %w", inc, err)
-		}
+	if !locked {
+		return Policy{}, NotTrusted{u}
 	}
-	body, hash, err := r.l.download(u)
+	cached := r.cacheFile(u, entry.SHA256)
+	b, err := os.ReadFile(cached)
 	if err != nil {
-		return Policy{}, fmt.Errorf("include %s: %w", inc, err)
+		return Policy{}, fmt.Errorf("include %s: %w; run 'stonewall policy update'", inc, err)
 	}
-	switch {
-	case locked && hash == entry.SHA256: // the cache file was lost; this content is already trusted
-	case locked:
-		if !r.ask(changeTitle(u, entry.SHA256, hash), r.diff(u, entry.SHA256, body), "Accept the new version?") {
-			return Policy{}, fmt.Errorf("include %s: rejected", inc)
-		}
-	default:
-		if !r.ask(fmt.Sprintf("include %s (sha256 %s)", u, hash), string(body), "Trust this policy?") {
-			return Policy{}, fmt.Errorf("include %s: rejected", inc)
-		}
-	}
-	cached, err := r.record(u, hash, body)
-	if err != nil {
-		return Policy{}, fmt.Errorf("include %s: %w", inc, err)
+	if digest(b) != entry.SHA256 {
+		return Policy{}, fmt.Errorf("include %s: cache file %s does not match lock.yml (tampered or corrupt); run 'stonewall policy update'", inc, cached)
 	}
 	r.files = append(r.files, cached)
-	return parseInclude(inc, body)
+	return parseInclude(inc, b)
+}
+
+// needsUpdate is true when any of urls has no lock entry or no cache file.
+func (r *resolve) needsUpdate(urls []string) bool {
+	for _, u := range urls {
+		entry, ok := r.lock.Policies[u]
+		if !ok || !exists(r.cacheFile(u, entry.SHA256)) {
+			return true
+		}
+	}
+	return false
 }
 
 // update refreshes every https include in order, leaving the lock dirty for the caller to save.
 func (r *resolve) update(includes []string) []UpdateResult {
+	if r.l.Updating != nil {
+		r.l.Updating()
+	}
 	var out []UpdateResult
 	for _, inc := range includes {
 		if !strings.Contains(inc, "://") {
@@ -202,32 +242,32 @@ func (r *resolve) update(includes []string) []UpdateResult {
 		}
 		u, err := remoteURL(inc)
 		if err != nil {
-			out = append(out, UpdateResult{URL: inc, Status: "failed", Err: err})
+			out = append(out, UpdateResult{URL: inc, Status: Failed, Err: err})
 			continue
 		}
 		body, hash, err := r.l.download(u)
 		if err != nil {
-			out = append(out, UpdateResult{URL: u, Status: "failed", Err: err})
+			out = append(out, UpdateResult{URL: u, Status: Failed, Err: err})
 			continue
 		}
 		entry, locked := r.lock.Policies[u]
-		status := "updated"
+		status := Updated
 		switch {
 		case locked && entry.SHA256 == hash:
-			status = "up to date"
+			status = UpToDate
 		case locked:
-			if !r.ask(changeTitle(u, entry.SHA256, hash), r.diff(u, entry.SHA256, body), "Accept the new version?") {
-				out = append(out, UpdateResult{URL: u, Status: "kept"})
+			if !r.ask(changeTitle(u, entry.SHA256, hash), r.diff(u, entry.SHA256, body), "Trust it?") {
+				out = append(out, UpdateResult{URL: u, Status: Kept})
 				continue
 			}
 		default:
-			if !r.ask(fmt.Sprintf("include %s (sha256 %s)", u, hash), string(body), "Trust this policy?") {
-				out = append(out, UpdateResult{URL: u, Status: "kept"})
+			if !r.ask(includeTitle(u, hash), "", "Trust it?") {
+				out = append(out, UpdateResult{URL: u, Status: Untrusted})
 				continue
 			}
 		}
 		if _, err := r.record(u, hash, body); err != nil {
-			out = append(out, UpdateResult{URL: u, Status: "failed", Err: err})
+			out = append(out, UpdateResult{URL: u, Status: Failed, Err: err})
 			continue
 		}
 		out = append(out, UpdateResult{URL: u, Status: status})
@@ -237,8 +277,19 @@ func (r *resolve) update(includes []string) []UpdateResult {
 	return out
 }
 
+// NotTrusted is the error for a remote policy declined at its review.
+type NotTrusted struct{ URL string }
+
+func (e NotTrusted) Error() string {
+	return fmt.Sprintf("include %s: not trusted", e.URL)
+}
+
+func includeTitle(u, hash string) string {
+	return fmt.Sprintf("Including remote policy %s (sha256 %s)", u, hash)
+}
+
 func changeTitle(u, old, new string) string {
-	return fmt.Sprintf("include %s changed (sha256 %s → %s)", u, old, new)
+	return fmt.Sprintf("Remote policy %s changed (sha256 %s → %s)", u, old, new)
 }
 
 // diff shows what a new body changes against the cached version, or the whole body when there is nothing
@@ -320,8 +371,15 @@ func (r *resolve) fetchedList(urls []string) string {
 }
 
 func (r *resolve) save() error {
-	if !r.dirty || len(r.lock.Policies) == 0 { // a lock exists only while remote policies do
+	if !r.dirty {
 		return nil
+	}
+	if len(r.lock.Policies) == 0 { // a lock exists only while remote policies do
+		err := os.Remove(r.lockPath)
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return err
 	}
 	b, err := yaml.Marshal(r.lock)
 	if err != nil {

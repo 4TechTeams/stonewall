@@ -11,17 +11,19 @@ import (
 
 // Loader resolves a policy file and its includes into one effective policy.
 type Loader struct {
-	// Ask shows body under title and asks question; false means no. It is also used for the staleness prompt.
-	Ask    func(title, body, question string) bool
-	Client *http.Client                 // https includes; tests inject an httptest client
-	Now    func() time.Time             // defaults to time.Now; tests set it
-	Report func(results []UpdateResult) // optional; receives what a staleness refresh did
+	// Ask shows body under title and asks question; false means no. Body is empty for a new remote policy,
+	// the diff for a changed one, and the fetch dates for the staleness prompt.
+	Ask      func(title, body, question string) bool
+	Updating func()                       // optional; called when an update of the remote policies starts
+	Client   *http.Client                 // https includes; tests inject an httptest client
+	Now      func() time.Time             // defaults to time.Now; tests set it
+	Report   func(results []UpdateResult) // optional; receives what a staleness refresh did
 }
 
 // Load parses path, resolves each include in order and merges them with the local file applied last. It returns
 // the effective policy and the absolute paths of every local file involved (local includes, cache files, the lock
-// file and the cache directory); the caller makes those inside the project read-only. Remote includes are served
-// from the cache; a cache miss downloads, shows and asks before caching. Stale caches trigger the update prompt.
+// file and the cache directory); the caller makes those inside the project read-only. Remote includes come from
+// the cache; one without a lock entry or cache file runs Update first, as does a stale cache when the user agrees.
 func (l Loader) Load(path string) (Policy, []string, error) {
 	local, err := Load(path)
 	if err != nil {
@@ -31,19 +33,17 @@ func (l Loader) Load(path string) (Policy, []string, error) {
 	if err != nil {
 		return Policy{}, nil, err
 	}
-	sources, err := r.includes(local.Include)
-	if err != nil {
-		return Policy{}, nil, err
-	}
 	if urls := remoteURLs(local.Include); len(urls) > 0 {
-		if days, stale := r.stale(urls); stale && !r.snoozed() {
+		days, stale := r.stale(urls)
+		switch {
+		case r.needsUpdate(urls):
+			if err := l.runUpdate(r, local.Include); err != nil {
+				return Policy{}, nil, err
+			}
+		case stale && !r.snoozed():
 			title := fmt.Sprintf("Cached remote policies are older than %d days and might be outdated.", days)
 			if r.ask(title, r.fetchedList(urls), "Update them now?") {
-				results := r.update(local.Include) // a failed refresh leaves the trusted cached versions in place
-				if l.Report != nil {
-					l.Report(results)
-				}
-				if sources, err = r.includes(local.Include); err != nil {
+				if err := l.runUpdate(r, local.Include); err != nil {
 					return Policy{}, nil, err
 				}
 			} else {
@@ -51,6 +51,12 @@ func (l Loader) Load(path string) (Policy, []string, error) {
 				r.dirty = true
 			}
 		}
+	}
+	sources, err := r.includes(local.Include)
+	if err != nil {
+		return Policy{}, nil, err
+	}
+	if len(remoteURLs(local.Include)) > 0 {
 		r.files = append(r.files, r.cacheDir(), r.lockPath)
 		if dir := filepath.Dir(r.lockPath); exists(dir) { // the directory itself, so it cannot be renamed away
 			r.files = append(r.files, dir)
@@ -64,6 +70,18 @@ func (l Loader) Load(path string) (Policy, []string, error) {
 		return Policy{}, nil, err
 	}
 	return eff, absAll(r.files), nil
+}
+
+// runUpdate refreshes the remote includes during a load, reports the results and returns their Problem.
+func (l Loader) runUpdate(r *resolve, includes []string) error {
+	results := r.update(includes)
+	if l.Report != nil {
+		l.Report(results)
+	}
+	if err := r.save(); err != nil {
+		return err
+	}
+	return Problem(results)
 }
 
 // includes resolves the include list in order, refusing anything it cannot read. It records the local
@@ -181,4 +199,104 @@ func replace(path string, content []byte) error {
 		return err
 	}
 	return os.Rename(f.Name(), path)
+}
+
+// AddInclude appends inc to the include list of the policy file at path, leaving everything else as written,
+// comments included. A missing include key is added after the leading comments. It reports false when inc is
+// already listed.
+// ponytail: line-based; a flow-style list (include: [a, b]) is not handled and reported instead.
+func AddInclude(path, inc string) (bool, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return false, err
+	}
+	lines := strings.SplitAfter(string(b), "\n")
+	key, at, head, indent := -1, -1, -1, "  " // the include: line, the line to insert after, the first key, the item indent
+scan:
+	for i, line := range lines {
+		item := strings.TrimSpace(line)
+		if j := strings.Index(item, "#"); j >= 0 && !strings.HasPrefix(item, "-") {
+			item = strings.TrimSpace(item[:j])
+		}
+		switch {
+		case key < 0 && strings.HasPrefix(item, "include:"):
+			if rest := strings.TrimSpace(item[len("include:"):]); rest != "" {
+				return false, fmt.Errorf("%s: include list is not one item per line, add %s by hand", path, inc)
+			}
+			key, at = i, i
+		case key < 0 && item != "":
+			if head < 0 {
+				head = i
+			}
+		case key >= 0 && strings.HasPrefix(item, "-"):
+			if itemValue(item) == inc {
+				return false, nil
+			}
+			indent = line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+			at = i
+		case key >= 0 && item != "":
+			break scan // the next key
+		}
+	}
+	entry := indent + "- " + inc + "\n"
+	if key < 0 { // no include key: in front of the first key, or at the end of a file without keys
+		entry = "include:\n" + entry
+		at = head - 1
+		if head < 0 {
+			at = len(lines) - 1
+		}
+	}
+	var out strings.Builder
+	for i, line := range lines {
+		if i == at+1 {
+			out.WriteString(entry)
+		}
+		out.WriteString(line)
+		if i == at && line != "" && !strings.HasSuffix(line, "\n") {
+			out.WriteString("\n")
+		}
+	}
+	if at+1 >= len(lines) {
+		out.WriteString(entry)
+	}
+	return true, replace(path, []byte(out.String()))
+}
+
+// RemoveInclude drops inc from the include list of the policy file at path, leaving everything else as
+// written. It reports false when inc is not listed.
+func RemoveInclude(path, inc string) (bool, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return false, err
+	}
+	var kept []string
+	inList, removed := false, false
+	for _, line := range strings.SplitAfter(string(b), "\n") {
+		item := strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(item, "include:"):
+			inList = true
+		case inList && strings.HasPrefix(item, "-"):
+			if itemValue(item) == inc {
+				removed = true
+				continue
+			}
+		case inList && item != "" && !strings.HasPrefix(item, "#"):
+			inList = false // the next key
+		}
+		kept = append(kept, line)
+	}
+	if !removed {
+		return false, nil
+	}
+	return true, replace(path, []byte(strings.Join(kept, "")))
+}
+
+// itemValue is the unquoted value of a "- value # comment" list item.
+func itemValue(item string) string {
+	value := strings.TrimSpace(item[1:])
+	if j := strings.Index(value, " #"); j >= 0 {
+		value = strings.TrimSpace(value[:j])
+	}
+	return strings.Trim(value, "\"'")
 }
