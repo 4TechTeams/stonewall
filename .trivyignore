@@ -1,0 +1,2 @@
+# test/Dockerfile runs --privileged as root on purpose: bwrap needs the namespaces (make e2e-linux).
+AVD-DS-0002
