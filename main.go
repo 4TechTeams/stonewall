@@ -53,7 +53,14 @@ func newRootCmd() *cobra.Command {
 	var dryRun, plain bool
 
 	cmd := &cobra.Command{
-		Use:           "stonewall [options] <agent> [agent args...]",
+		Use:   "stonewall [options] <agent> [agent args...]",
+		Short: "kernel-enforced sandbox for AI coding agents",
+		Long:  "  Launches the <agent> inside a sandbox. What the agent can see, change and run is defined in the .stonewall.yml policy.",
+		Example: "  stonewall claude                  Run Claude Code in a stonewall sandbox\n" +
+			"  stonewall claude --resume         Pass arguments to the agent\n" +
+			"  stonewall -n codex                Print sandbox config, launch nothing\n" +
+			"  stonewall -p ci.yml codex         Use another policy file\n" +
+			"  stonewall sh -c 'ls ~'            Run any command within the sandbox",
 		Args:          cobra.ArbitraryArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -64,31 +71,83 @@ func newRootCmd() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				fmt.Fprint(cmd.OutOrStdout(), newUI(cmd.OutOrStdout(), plain).help())
-				return nil
+				return cmd.Help()
 			}
 			return launch(args, policyPath, dryRun)
 		},
 	}
 	cmd.SetVersionTemplate("stonewall {{.Version}}\n")
 	cmd.Flags().SetInterspersed(false)
-	// --policy and --plain are persistent so `stonewall policy update` takes them too.
-	cmd.PersistentFlags().StringVarP(&policyPath, "policy", "p", "", "policy file (default: <project root>/"+policy.FileName+")")
-	cmd.PersistentFlags().BoolVar(&plain, "plain", false, "no colour or formatting in stonewall's own output")
-	cmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "print the sandbox command and exit")
+	// --policy and --plain are persistent so the policy subcommands take them too.
+	cmd.PersistentFlags().StringVarP(&policyPath, "policy", "p", "", "Use `FILE` instead of discovered "+policy.FileName)
+	cmd.PersistentFlags().BoolVar(&plain, "plain", false, "No colour / formatting in output")
+	cmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Print the sandbox command and exit")
+	cmd.Flags().BoolP("version", "v", false, "Print the version") // cobra handles them, these only word the help
+	cmd.PersistentFlags().BoolP("help", "h", false, "Show this help")
+	cmd.CompletionOptions.DisableDefaultCmd = true
+	cmd.SetHelpCommand(&cobra.Command{Hidden: true})
 
-	policyCmd := &cobra.Command{Use: "policy", Short: "Manage the project policy"}
+	// Help pages are cobra's own, rendered from Use, Short, Long and Example, in stonewall's style. Colour
+	// follows stdout, where help goes, and the --plain flag, which is parsed before help runs.
+	paint := func(code string) func(string) string {
+		return func(s string) string { return newUI(os.Stdout, plain).paint(code, s) }
+	}
+	cobra.AddTemplateFunc("orange", paint("1;38;5;202"))
+	cobra.AddTemplateFunc("bold", paint("1"))
+	cobra.AddTemplateFunc("dim", paint("2"))
+	cobra.AddTemplateFunc("useLine", func(c *cobra.Command) string { return strings.TrimSuffix(c.UseLine(), " [flags]") })
+	cmd.SetHelpTemplate(`
+{{orange .Root.Name}} {{dim (print .Root.Version "  " .Root.Short)}}
+
+{{with .Long}}{{.}}
+
+{{end}}{{.UsageString}}`)
+	cmd.SetUsageTemplate(`{{orange "USAGE"}}{{if or (not .HasParent) (not .HasAvailableSubCommands)}}
+  {{useLine .}}{{end}}{{if .HasAvailableSubCommands}}
+  {{.CommandPath}} <command>{{end}}{{if .HasExample}}
+
+{{orange "EXAMPLES"}}
+{{.Example}}{{end}}{{if .HasAvailableLocalFlags}}
+
+{{orange "OPTIONS"}}
+{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableInheritedFlags}}
+
+{{orange "GLOBAL OPTIONS"}}
+{{.InheritedFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableSubCommands}}
+
+{{orange "COMMANDS"}}{{range .Commands}}{{if .IsAvailableCommand}}
+  {{bold (rpad .Name .NamePadding)}}  {{.Short}}{{end}}{{end}}
+
+  Use "{{.CommandPath}} <command> --help" for more about a command.{{end}}
+
+{{dim "Visit https://stonewall.sh for more information or contribute on https://github.com/stonewall-sh/stonewall."}}
+`)
+
+	policyCmd := &cobra.Command{
+		Use:   "policy",
+		Short: "Manage the project policy",
+		Args:  cobra.NoArgs, // runnable, so an unknown subcommand is an error instead of this help page
+		RunE:  func(cmd *cobra.Command, args []string) error { return cmd.Help() },
+	}
 	policyCmd.AddCommand(&cobra.Command{
 		Use:   "update",
 		Short: "Refresh cached remote policies",
 		Args:  cobra.NoArgs,
 		RunE:  func(cmd *cobra.Command, args []string) error { return updatePolicies(policyPath) },
 	})
-	cmd.AddCommand(policyCmd)
-
-	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		fmt.Fprint(cmd.OutOrStdout(), newUI(cmd.OutOrStdout(), plain).help())
+	policyCmd.AddCommand(&cobra.Command{
+		Use:   "include <url|path>",
+		Short: "Add a policy to the include list; a remote one is reviewed and cached right away",
+		Args:  cobra.ExactArgs(1),
+		RunE:  func(cmd *cobra.Command, args []string) error { return includePolicy(policyPath, args[0]) },
 	})
+	policyCmd.AddCommand(&cobra.Command{
+		Use:   "remove <url|path>",
+		Short: "Drop a policy from the include list",
+		Args:  cobra.ExactArgs(1),
+		RunE:  func(cmd *cobra.Command, args []string) error { return removePolicy(policyPath, args[0]) },
+	})
+	cmd.AddCommand(policyCmd)
 
 	return cmd
 }
@@ -101,29 +160,35 @@ func newLoader() policy.Loader {
 			out.block(title, body)
 			return out.confirm(question)
 		},
-		Report: func(results []policy.UpdateResult) { reportUpdates(results) },
+		Updating: func() { fmt.Fprintln(out.w, out.paint("1", "Updating remote policies...")) },
+		Report:   func(results []policy.UpdateResult) { reportUpdates(results) },
 	}
 }
 
-// reportUpdates prints one row per refreshed policy and an error line per failure, and returns
-// how many failed.
-func reportUpdates(results []policy.UpdateResult) int {
+// reportUpdates prints one row per refreshed policy, an error line per failure, and for a refused policy
+// the statement with the way out, since that is a decision, not an error.
+func reportUpdates(results []policy.UpdateResult) {
 	var rows [][2]string
-	failed := 0
 	for _, r := range results {
-		if r.Status == "failed" {
-			failed++
-			continue
+		if r.Status != policy.Failed && r.Status != policy.Untrusted {
+			rows = append(rows, [2]string{r.Status, r.URL})
 		}
-		rows = append(rows, [2]string{r.Status, r.URL})
 	}
 	out.rows(rows...)
 	for _, r := range results {
-		if r.Status == "failed" {
+		switch r.Status {
+		case policy.Failed:
 			out.error(fmt.Errorf("%s: %w", r.URL, r.Err))
+		case policy.Untrusted:
+			fmt.Fprintf(out.w, "%s\n\nTo remove the include, please run:\nstonewall policy remove %s\n", out.paint("1", "Policy include "+r.URL+" not trusted."), r.URL)
 		}
 	}
-	return failed
+}
+
+// notTrusted reports whether err is a refused remote policy, which reportUpdates has already explained.
+func notTrusted(err error) bool {
+	var nt policy.NotTrusted
+	return errors.As(err, &nt)
 }
 
 // updatePolicies refreshes the cached remote policies of the project's policy file.
@@ -136,13 +201,82 @@ func updatePolicies(policyPath string) error {
 		policyPath = filepath.Join(policy.FindRoot(cwd), policy.FileName)
 	}
 	results, err := newLoader().Update(policyPath)
-	failed := reportUpdates(results)
-	if err != nil {
-		if failed == 0 {
-			return exitError{1, err}
-		}
+	reportUpdates(results)
+	switch {
+	case notTrusted(err):
+		return exitError{code: 1}
+	case err != nil && len(results) > 0:
 		return exitError{code: 1} // the failures are already reported
+	case err != nil:
+		return exitError{1, err}
 	}
+	return nil
+}
+
+// includeRef returns the policy file to edit and inc as it is written there: a path given relative to the
+// caller becomes relative to the policy file.
+func includeRef(policyPath, inc string) (string, string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", "", err
+	}
+	if policyPath == "" {
+		policyPath = filepath.Join(policy.FindRoot(cwd), policy.FileName)
+	}
+	if strings.Contains(inc, "://") || strings.HasPrefix(inc, "~/") || filepath.IsAbs(inc) {
+		return policyPath, inc, nil
+	}
+	abs, err := filepath.Abs(inc)
+	if err != nil {
+		return "", "", err
+	}
+	dir, err := filepath.Abs(filepath.Dir(policyPath))
+	if err != nil {
+		return "", "", err
+	}
+	rel, err := filepath.Rel(dir, abs)
+	return policyPath, rel, err
+}
+
+// includePolicy adds inc to the policy file's include list and runs the update, so a new remote policy is
+// reviewed and cached now.
+func includePolicy(policyPath, inc string) error {
+	policyPath, inc, err := includeRef(policyPath, inc)
+	if err != nil {
+		return exitError{1, err}
+	}
+	added, results, err := newLoader().Include(policyPath, inc)
+	if added {
+		fmt.Fprintln(out.w, out.paint("1", "Added policy include for "+inc+" to "+policyPath+"."))
+	} else if err == nil {
+		fmt.Fprintln(out.w, out.paint("1", "Policy include for "+inc+" already in "+policyPath+"."))
+	}
+	reportUpdates(results)
+	switch {
+	case notTrusted(err):
+		return exitError{code: 1}
+	case err != nil && len(results) > 0:
+		return exitError{code: 1}
+	case err != nil:
+		return exitError{1, err}
+	}
+	return nil
+}
+
+// removePolicy drops inc from the policy file's include list, with its lock entry and cache file.
+func removePolicy(policyPath, inc string) error {
+	policyPath, inc, err := includeRef(policyPath, inc)
+	if err != nil {
+		return exitError{1, err}
+	}
+	removed, err := policy.Remove(policyPath, inc)
+	if err != nil {
+		return exitError{1, err}
+	}
+	if !removed {
+		return exitError{1, fmt.Errorf("%s is not in the include list of %s", inc, policyPath)}
+	}
+	fmt.Fprintln(out.w, out.paint("1", "Removed policy include for "+inc+" from "+policyPath+"."))
 	return nil
 }
 
@@ -184,18 +318,17 @@ func launch(args []string, policyPath string, dryRun bool) error {
 	if policyPath == "" {
 		policyPath = filepath.Join(root, policy.FileName)
 		if _, err := os.Stat(policyPath); errors.Is(err, os.ErrNotExist) {
-			content := policy.Scaffold(args[0])
-			out.block("stonewall will create "+policyPath, content)
-			if !out.confirm("Write it?") {
-				return fail(errors.New("aborted, no policy written"))
-			}
-			if err := policy.WriteScaffold(policyPath, content); err != nil {
+			if err := policy.WriteScaffold(policyPath, policy.Scaffold(args[0])); err != nil {
 				return fail(err)
 			}
+			out.block("Created initial policy "+policyPath, "Change it to your needs.")
 			created = true
 		}
 	}
 	eff, localFiles, err := newLoader().Load(policyPath)
+	if notTrusted(err) {
+		return exitError{code: 1}
+	}
 	if err != nil {
 		return fail(err)
 	}

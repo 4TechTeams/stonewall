@@ -97,23 +97,3 @@ func TestNewUI(t *testing.T) {
 		t.Error("newUI with plain=true should be plain")
 	}
 }
-
-func TestHelpPlain(t *testing.T) {
-	var buf bytes.Buffer
-	got := ui{w: &buf, plain: true}.help()
-	for _, want := range []string{"USAGE", "exactly what .stonewall.yml", "-p, --policy FILE", "stonewall claude --resume", "COMMANDS", "policy update"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("plain help missing %q:\n%s", want, got)
-		}
-	}
-	if strings.Contains(got, "\x1b") {
-		t.Errorf("plain help should have no escape codes:\n%s", got)
-	}
-}
-
-func TestHelpColor(t *testing.T) {
-	got := ui{color: true}.help()
-	if !strings.Contains(got, "\x1b[1;38;5;202mOPTIONS\x1b[0m") {
-		t.Errorf("colored help missing styled OPTIONS heading:\n%s", got)
-	}
-}
