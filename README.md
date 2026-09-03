@@ -53,12 +53,15 @@ keep working.
 
 ## 📦 Install
 
-| Platform | Runtime requirement                                                                       |
-|----------|-------------------------------------------------------------------------------------------|
-| macOS    | Nothing. `sandbox-exec` ships with the OS.                                                |
-| Linux    | `bubblewrap`: `apt install bubblewrap`, `dnf install bubblewrap`, `pacman -S bubblewrap`. |
+```
+curl -fsSL https://stonewall.sh/install.sh | sh
+```
 
-Download the binary for your platform from the
+Installs the latest release to `/usr/local/bin` (override with `STONEWALL_INSTALL_DIR`) and, on Linux, `bubblewrap`
+with your package manager. The script is
+[short](https://github.com/stonewall-sh/stonewall/blob/main/install.sh), read it first.
+
+You can also download the binary for your platform from the
 [latest release](https://github.com/stonewall-sh/stonewall/releases/latest), or build from source with Go 1.27 or newer:
 
 ```
