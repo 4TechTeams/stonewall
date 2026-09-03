@@ -1,0 +1,20 @@
+###############################################################################
+# stonewall.sh Sandbox Policy for Coding Agents                               #
+#                                                                             #
+# See https://stonewall.sh or run `stonewall --help` for details              #
+###############################################################################
+
+project:
+  readonly:
+    - .git
+bin:
+  allowed:
+    - make
+    - cowsay
+    - perl
+expose:
+  read:
+    - ~/.gitconfig
+include:
+  - policies/base.yml
+  - policies/claude.yml
