@@ -21,6 +21,7 @@ bin:
   allowed:
     - ls
     - cat
+    - echo
     - head
     - tail
     - grep
