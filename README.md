@@ -122,7 +122,7 @@ expose:
 Included policies apply first, your own rules last. Remote policies are reviewed once, then cached in
 `.stonewall/policies/`. Run `stonewall policy update` to fetch new versions.
 
-See the [available official policies](https://github.com/stonewall-sh/stonewall/tree/main/policies) you can include in your project.
+See the [available official policies](https://github.com/stonewall-sh/stonewall/tree/main/policy) you can include in your project.
 
 ## ⚙️ How it Works
 
