@@ -75,9 +75,8 @@ cd my-project
 stonewall claude
 ```
 
-The first run shows the policy it proposes to write and asks before writing it. Edit it, run again. Any agent works once
-it is allowed: `stonewall codex` after adding `codex` to `bin.allowed`, or after including a policy that lists it.
-Stonewall refuses an agent the policy does not allow.
+The first run writes a starter `.stonewall.yml` policy, depending on the agent your run. The base policy is
+intentionally restrictive, Adapt it to your needs.
 
 | Flag                | What it does                                                                                                                |
 |---------------------|-----------------------------------------------------------------------------------------------------------------------------|
@@ -87,13 +86,10 @@ Stonewall refuses an agent the policy does not allow.
 | `-v, --version`     | Print the version.                                                                                                          |
 | `-h, --help`        | Show the help page. Also shown when run without arguments.                                                                  |
 
-Options go before the agent; everything after the agent name is passed to it untouched. `stonewall policy update`
-refreshes the cached remote policies (see below); because `policy` is a subcommand, an agent literally named
-`policy` needs `stonewall -- policy`.
+Options go before the agent; everything after the agent name is passed to it untouched.
 
 The project root is the nearest directory upwards holding `.stonewall.yml` or `.git`, else the current directory. You
-can launch from a subdirectory; the agent starts there. Stonewall refuses to run when the root is your home directory or
-`/`, and prints the root and policy file it uses on every launch.
+can launch from a subdirectory, the agent starts there.
 
 ## 📜 Policy
 
@@ -125,7 +121,12 @@ expose:
 Included policies apply first, your own rules last. Remote policies are reviewed once, then cached in
 `.stonewall/policies/`. Run `stonewall policy update` to fetch new versions.
 
-See the [available official policies](https://github.com/stonewall-sh/stonewall/tree/main/policy) you can include in your project.
+`stonewall policy include https://stonewall.sh/policy/claude.yml` (or a local path) adds a policy to the include
+list and, for a remote one, runs the review and caches it right away instead of at the next launch.
+`stonewall policy remove …` drops it again.
+
+See the [available official policies](https://github.com/stonewall-sh/stonewall/tree/main/policy) you can include in
+your project.
 
 ## ⚙️ How it Works
 
