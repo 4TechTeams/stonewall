@@ -6,10 +6,10 @@
 
 **Force applied security guardrails for coding agents**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-E4572E.svg?style=flat-square)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-E4572E.svg?style=flat-square)](https://github.com/stonewall-sh/stonewall/blob/main/LICENSE)
 [![Build](https://img.shields.io/github/actions/workflow/status/stonewall-sh/stonewall/build.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=build)](https://github.com/stonewall-sh/stonewall/actions/workflows/build.yml)
-[![Linux](https://img.shields.io/badge/Linux-bubblewrap-FCC624?style=flat-square&logo=linux&logoColor=black)](#-install)
-[![macOS](https://img.shields.io/badge/macOS-sandbox--exec-000000?style=flat-square&logo=apple&logoColor=white)](#-install)
+[![Linux](https://img.shields.io/badge/Linux-bubblewrap-FCC624?style=flat-square&logo=linux&logoColor=black)](https://github.com/stonewall-sh/stonewall/releases/latest)
+[![macOS](https://img.shields.io/badge/macOS-sandbox--exec-000000?style=flat-square&logo=apple&logoColor=white)](https://github.com/stonewall-sh/stonewall/releases/latest)
 
 </div>
 
@@ -122,7 +122,7 @@ expose:
 Included policies apply first, your own rules last. Remote policies are reviewed once, then cached in
 `.stonewall/policies/`. Run `stonewall policy update` to fetch new versions.
 
-See the [available official policies](./policies) you can include in your project.
+See the [available official policies](https://github.com/stonewall-sh/stonewall/tree/main/policies) you can include in your project.
 
 ## ⚙️ How it Works
 
@@ -195,7 +195,7 @@ Issues and pull requests are very welcome, be it new / updated policies or actua
 
 ## ⚖️ License
 
-Released under the [MIT License](LICENSE) © 4TechTeams.
+Released under the [MIT License](https://github.com/stonewall-sh/stonewall/blob/main/LICENSE) © 4TechTeams.
 
 <div align="center">
 <sub>Built by <a href="https://github.com/4TechTeams">4TechTeams</a></sub>
