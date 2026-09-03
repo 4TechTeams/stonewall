@@ -7,7 +7,7 @@
 **Force applied security guardrails for coding agents**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-E4572E.svg?style=flat-square)](LICENSE)
-[![Build](https://img.shields.io/github/actions/workflow/status/4TechTeams/stonewall/build.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=build)](https://github.com/4TechTeams/stonewall/actions/workflows/build.yml)
+[![Build](https://img.shields.io/github/actions/workflow/status/stonewall-sh/stonewall/build.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=build)](https://github.com/stonewall-sh/stonewall/actions/workflows/build.yml)
 [![Linux](https://img.shields.io/badge/Linux-bubblewrap-FCC624?style=flat-square&logo=linux&logoColor=black)](#-install)
 [![macOS](https://img.shields.io/badge/macOS-sandbox--exec-000000?style=flat-square&logo=apple&logoColor=white)](#-install)
 
@@ -59,10 +59,10 @@ keep working.
 | Linux    | `bubblewrap`: `apt install bubblewrap`, `dnf install bubblewrap`, `pacman -S bubblewrap`. |
 
 Download the binary for your platform from the
-[latest release](https://github.com/4TechTeams/stonewall/releases/latest), or build from source with Go 1.27 or newer:
+[latest release](https://github.com/stonewall-sh/stonewall/releases/latest), or build from source with Go 1.27 or newer:
 
 ```
-go install github.com/4TechTeams/stonewall/v2@latest
+go install github.com/stonewall-sh/stonewall/v2@latest
 ```
 
 ## ⚡ Usage

@@ -14,9 +14,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/4TechTeams/stonewall/v2/internal/policy"
-	"github.com/4TechTeams/stonewall/v2/internal/sandbox"
 	"github.com/spf13/cobra"
+	"github.com/stonewall-sh/stonewall/v2/internal/policy"
+	"github.com/stonewall-sh/stonewall/v2/internal/sandbox"
 	"gopkg.in/yaml.v3"
 )
 

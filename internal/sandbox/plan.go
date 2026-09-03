@@ -11,7 +11,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/4TechTeams/stonewall/v2/internal/policy"
+	"github.com/stonewall-sh/stonewall/v2/internal/policy"
 )
 
 // Plan is a policy resolved against the host. Every path is absolute with symlinks resolved.

@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/4TechTeams/stonewall/v2/internal/policy"
+	"github.com/stonewall-sh/stonewall/v2/internal/policy"
 )
 
 // stdin is where confirm reads the answer. Tests swap it.
@@ -149,7 +149,7 @@ func (u ui) help() string {
 	fmt.Fprintln(&b, strings.Repeat(" ", 22)+"changed ones and ask before replacing them")
 	b.WriteString("\n")
 
-	fmt.Fprintf(&b, "  %s\n", dim("https://github.com/4TechTeams/stonewall"))
+	fmt.Fprintf(&b, "  %s\n", dim("https://github.com/stonewall-sh/stonewall"))
 
 	return b.String()
 }

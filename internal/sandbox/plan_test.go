@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/4TechTeams/stonewall/v2/internal/policy"
+	"github.com/stonewall-sh/stonewall/v2/internal/policy"
 )
 
 func TestBuild(t *testing.T) {
