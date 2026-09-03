@@ -10,16 +10,25 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"syscall"
 
-	"github.com/4TechTeams/stonewall/internal/policy"
-	"github.com/4TechTeams/stonewall/internal/sandbox"
+	"github.com/4TechTeams/stonewall/v2/internal/policy"
+	"github.com/4TechTeams/stonewall/v2/internal/sandbox"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
-const version = "2.0.0-poc"
+// version is stamped by GoReleaser through -ldflags "-X main.version=…". A `go install` build has
+// no ldflags but carries the module version in its build info.
+var version = "dev"
+
+func init() {
+	if bi, ok := debug.ReadBuildInfo(); ok && version == "dev" && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+		version = strings.TrimPrefix(bi.Main.Version, "v")
+	}
+}
 
 // out is stonewall's own stderr UI. Built plain in main before Execute, then refined by
 // PersistentPreRunE once --plain is known. The initial value is used only on flag-parse errors,

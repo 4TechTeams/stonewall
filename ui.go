@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/4TechTeams/stonewall/internal/policy"
+	"github.com/4TechTeams/stonewall/v2/internal/policy"
 )
 
 // stdin is where confirm reads the answer. Tests swap it.

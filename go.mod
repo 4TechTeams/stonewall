@@ -1,4 +1,4 @@
-module github.com/4TechTeams/stonewall
+module github.com/4TechTeams/stonewall/v2
 
 go 1.27
 
