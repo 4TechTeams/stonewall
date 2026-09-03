@@ -58,13 +58,12 @@ keep working.
 | macOS    | Nothing. `sandbox-exec` ships with the OS.                                                |
 | Linux    | `bubblewrap`: `apt install bubblewrap`, `dnf install bubblewrap`, `pacman -S bubblewrap`. |
 
-Build from source with Go 1.27 or newer:
+Download the binary for your platform from the
+[latest release](https://github.com/4TechTeams/stonewall/releases/latest), or build from source with Go 1.27 or newer:
 
 ```
-go install github.com/4TechTeams/stonewall@latest
+go install github.com/4TechTeams/stonewall/v2@latest
 ```
-
-Prebuilt binaries are planned.
 
 ## ⚡ Usage
 
@@ -177,6 +176,18 @@ Seatbelt profile. Both renderers are pure functions with golden tests. `test/e2e
 platforms.
 
 `--dry-run` shows exactly what the backend receives. Start there when something is unexpectedly blocked or visible.
+
+**Release.** CI runs gofmt, `go vet`, the unit and end-to-end tests on Ubuntu and macOS, and a snapshot cross-build on
+every push. To release, tag and push:
+
+```
+git tag v2.1.0 && git push origin v2.1.0
+```
+
+The same checks run again, then GoReleaser builds Linux and macOS binaries for amd64 and arm64 and publishes them with
+checksums as a GitHub release. The tag is the only version source: it is stamped into the release binaries and reported
+by `go install` builds. A local `make build` says `dev`. A new major version needs the module path suffix bumped, for
+example `stonewall/v2` to `stonewall/v3`, in `go.mod` and the imports.
 
 ## 🤝 Contributing
 
