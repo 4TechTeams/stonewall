@@ -19,20 +19,21 @@ project:
     - secrets
 bin:
   allowed:
-    - ls
     - cat
-    - echo
-    - head
-    - tail
-    - grep
-    - wc
-    - sort
-    - uniq
-    - tr
     - cut
     - diff
-    - stat
+    - dirname
+    - echo
     - file
+    - grep
+    - head
+    - ls
+    - sort
+    - stat
+    - tail
+    - tr
+    - uniq
+    - wc
 expose:
   write:
     - /tmp
