@@ -3,7 +3,7 @@
 #                                                                                  #
 # https://stonewall.sh/policy/base.yml                                             #
 #                                                                                  #
-# Provides a bare-minimum safety net for any project. It intentionally does NOT    Ç‡
+# Provides a bare-minimum safety net for any project. It intentionally does NOT    #
 # include anything language-, framework- or agent-specific rules, and no tools     #
 # that write, delete, commit or run other programs.                                #
 #                                                                                  #

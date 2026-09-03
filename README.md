@@ -195,8 +195,4 @@ Issues and pull requests are very welcome, be it new / updated policies or actua
 
 ## ⚖️ License
 
-Released under the [MIT License](https://github.com/stonewall-sh/stonewall/blob/main/LICENSE) © 4TechTeams.
-
-<div align="center">
-<sub>Built by <a href="https://github.com/4TechTeams">4TechTeams</a></sub>
-</div>
+Released under the [MIT License](https://github.com/stonewall-sh/stonewall/blob/main/LICENSE).
