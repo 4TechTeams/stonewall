@@ -1,0 +1,13 @@
+{{ define "main" }}
+<h1>Official policies</h1>
+<p class="lead">Ready-made rules you include in your project's <code>.stonewall.yml</code>. Included policies apply first, your own rules last.</p>
+<p>Add one with <code>stonewall policy include &lt;url&gt;</code>, or run <code>stonewall policy pick</code> to tick the ones you need from this list. Remote policies are reviewed once and cached; <code>stonewall policy update</code> fetches new versions.</p>
+<p class="notice">These are official stonewall.sh policies and should not be changed locally. Always review remote policies before applying them. Stonewall and its policies come without warranty of any kind.</p>
+{{ range .Pages }}
+<section class="policy">
+  <h2><a href="{{ .RelPermalink }}">{{ .Title }}</a></h2>
+  {{ with .Params.meta.description }}<p>{{ . }}</p>{{ end }}
+  {{ with .Params.meta.url }}<pre><code>stonewall policy include {{ . }}</code></pre>{{ end }}
+</section>
+{{ end }}
+{{ end }}

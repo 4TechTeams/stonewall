@@ -1,0 +1,33 @@
+baseURL: https://stonewall.sh/
+title: Stonewall
+languageCode: en
+disableKinds: [taxonomy, term, rss, sitemap]
+cascade:
+  - title: License
+    _target: {path: /license}
+params:
+  github: https://github.com/stonewall-sh/stonewall
+module:
+  mounts:
+    - {source: ../policies,      target: static/policies}   # raw files, served as they are
+    - {source: ../policies,      target: data/policies}     # parsed: site.Data.policies.<name>
+    - {source: ../policies,      target: assets/policies}   # source text for the policy page
+    - {source: ../README.md,     target: content/_index.md}
+    - {source: ../docs/logo.svg, target: static/docs/logo.svg}
+    - {source: ../docs/logo.png, target: static/docs/logo.png}
+    - {source: ../install.sh,    target: static/install.sh}
+    - {source: ../CNAME,         target: static/CNAME}
+    - {source: ../LICENSE,       target: content/license.md}
+    - {source: content,          target: content}
+    - {source: layouts,          target: layouts}
+mediaTypes:
+  application/yaml: {suffixes: [yml, yaml]}
+outputFormats:
+  policyindex: {mediaType: application/yaml, baseName: _index, isPlainText: true, notAlternative: true}
+outputs:
+  section: [html, policyindex]
+markup:
+  goldmark:
+    renderer: {unsafe: true}   # the README opens with <div align="center">
+  highlight:
+    noClasses: false           # classes only, coloured by the stylesheet in baseof.html
