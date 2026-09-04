@@ -5,7 +5,7 @@
 ####################################################################################
 
 policy:
-  name: stonewall.sh policy for Claude Code
+  name: Claude Code
   url: https://stonewall.sh/policies/claude.yml
   description: >
     Allows access to the minimum binaries and locations needed by Claude Code.

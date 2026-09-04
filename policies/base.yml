@@ -5,7 +5,7 @@
 ####################################################################################
 
 policy:
-  name: stonewall.sh base policy
+  name: Base
   url: https://stonewall.sh/policies/base.yml
   description: >
     Provides a bare-minimum safety net for any project. It intentionally does NOT
