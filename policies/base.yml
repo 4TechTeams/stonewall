@@ -1,16 +1,16 @@
 ####################################################################################
-# stonewall.sh base policy                                                         #
-#                                                                                  #
-# https://stonewall.sh/policy/base.yml                                             #
-#                                                                                  #
-# Provides a bare-minimum safety net for any project. It intentionally does NOT    #
-# include anything language-, framework- or agent-specific rules, and no tools     #
-# that write, delete, commit or run other programs.                                #
-#                                                                                  #
 # This is an official stonewall.sh policy and should not be changed locally.       #
 # Please always review remote policies before applying them. Stonewall and its     #
 # policies come without warranty of any kind. See LICENSE for details.             #
 ####################################################################################
+
+policy:
+  name: stonewall.sh base policy
+  url: https://stonewall.sh/policies/base.yml
+  description: >
+    Provides a bare-minimum safety net for any project. It intentionally does NOT
+    include anything language-, framework- or agent-specific rules, and no tools
+    that write, delete, commit or run other programs.
 project:
   readonly:
     - .git
