@@ -1,6 +1,6 @@
 # GitHub Pages: https://stonewall.sh serves README.md as the front page and policy/*.yml as files.
 title: Stonewall
-description: Force applied security guardrails for coding agents
+description: Kernel-enforced sandbox for AI coding agents
 theme: jekyll-theme-primer
 kramdown:
   parse_block_html: true  # the README wraps its header in <div align="center">; render the markdown inside

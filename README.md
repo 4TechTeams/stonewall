@@ -2,9 +2,9 @@
 
 <img src="docs/logo.svg" alt="Stonewall" width="128" height="128">
 
-# Stonewall
+# Stonewall<span style="opacity:.45">.sh</span>
 
-**Force applied security guardrails for coding agents**
+**Kernel-enforced sandbox for AI coding agents**
 
 [![Build](https://img.shields.io/github/actions/workflow/status/stonewall-sh/stonewall/build.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=build)](https://github.com/stonewall-sh/stonewall/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/stonewall-sh/stonewall?style=flat-square&logo=github&label=release)](https://github.com/stonewall-sh/stonewall/releases/latest)
