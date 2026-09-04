@@ -1,0 +1,7 @@
+{{ range $name, $p := site.Data.policies }}
+  {{ $meta := $p.policy | default dict }}
+  {{ $.AddPage (dict
+       "path" $name
+       "title" ($meta.name | default $name)
+       "params" (dict "meta" $meta "file" (printf "%s.yml" $name))) }}
+{{ end }}

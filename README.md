@@ -2,9 +2,9 @@
 
 <img src="docs/logo.svg" alt="Stonewall" width="128" height="128">
 
-# Stonewall
+# Stonewall<span style="opacity:.45">.sh</span>
 
-**Force applied security guardrails for coding agents**
+**Kernel-enforced sandbox for AI coding agents**
 
 [![Build](https://img.shields.io/github/actions/workflow/status/stonewall-sh/stonewall/build.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=build)](https://github.com/stonewall-sh/stonewall/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/stonewall-sh/stonewall?style=flat-square&logo=github&label=release)](https://github.com/stonewall-sh/stonewall/releases/latest)
@@ -40,17 +40,16 @@ sandbox.
 
 ### Project Directories and Files
 
-Inside the project, the agent works as usual, except where the policy says otherwise. Mark `.git` read-only and the
-agent can read history but never commit, reset or rewrite it. Mark `.env` or `secrets/` hidden and the agent cannot read
-them at all, no matter how politely it asks. Stop worrying about a stray `git push --force` or a leaked API key:
-the kernel refuses, not the agent.
+Inside the project, all files are accessible by default. Stonewall can make project files / dirs read-only or even 
+completely hide them from the agent. I.e. hiding `.env` to not expose keys, or making `.git` readonly, to prevent 
+destructive git operations.
 
 ### Files outside the Project
 
-Outside the project there is nothing to see. Your home directory does not exist for the agent: `~/.ssh`, `~/.aws`, your
-shell history, your other projects, all gone. Only what the policy explicitly exposes comes back, read-only or
-read-write, such as the agent's own settings under `~/.claude`. System directories stay readable so the allowed tools
-keep working.
+By default, no files outside the project root are visible to the agent. You can expose specific directories or files tho,
+i.e. `~/.ssh`, `~/.aws`, or `~/.claude`. System directories stay readable so the allowed tools keep working.
+
+*Agents can never access the stonewall CLI or policy files.*
 
 ## 📦 Install
 
@@ -94,40 +93,43 @@ can launch from a subdirectory, the agent starts there.
 
 ## 📜 Policy
 
-`.stonewall.yml` at the project root contains all rules applied. Policies can be included locally and from remote
-sources.
-
-Example ploicy of a Node project that lets Claude Code build, test and commit:
+The `.stonewall.yml` policy at the project root contains all rules applied. It could look like the following example:
 
 ```yaml
 include:
-  - https://stonewall.sh/policy/base.yml    # .git read-only, .env and secrets hidden, read-only tools
-  - https://stonewall.sh/policy/claude.yml  # claude, node, the keychain login, ~/.claude
+  - https://stonewall.sh/policies/base.yml  # remote policy include, see below
+  - ~/.stonewall/policies/corporate.yml     # local policy include
 project:
   hidden:
-    - .env.local        # base.yml hides .env, this project also has local overrides
+    - .env.local        # local override for a hidden project file
   writable:
-    - .git              # base.yml makes .git read-only, this project wants commits from the agent
+    - .git              
 bin:
   allowed:
-    - sh                # Claude Code's Bash tool needs a shell. This widens the sandbox considerably.
+    - sh                # whitelist of allowed binaries
     - git
     - npm
     - npx
 expose:
   write:
-    - ~/.npm            # npm's cache
+    - ~/.npm            # directories outside the project that should be accessible
 ```
 
-Included policies apply first, your own rules last. Remote policies are reviewed once, then cached in
-`.stonewall/policies/`. Run `stonewall policy update` to fetch new versions.
+### Remote Policies
 
-`stonewall policy include https://stonewall.sh/policy/claude.yml` (or a local path) adds a policy to the include
-list and, for a remote one, runs the review and caches it right away instead of at the next launch.
-`stonewall policy remove …` drops it again.
+You can add or remove any [official remote policies](https://stonewall.sh/policies) using the interactive picker:
 
-See the [available official policies](https://github.com/stonewall-sh/stonewall/tree/main/policy) you can include in
-your project.
+```bash
+stonewall policy pick
+```
+
+TO manae any remote policy manually, use these:
+
+```bash
+stonewall policy include https://stonewall.sh/policies/claude.yml # include a remote policy
+stonewall policy rempoe https://stonewall.sh/policies/claude.yml # remove a remote policy
+stonewall policy update # updates existing policies
+```
 
 ## ⚙️ How it Works
 
@@ -173,12 +175,16 @@ make build       # ./stonewall
 make test        # unit tests
 make e2e         # end-to-end on this machine, macOS or Linux
 make e2e-linux   # same, inside Docker with bubblewrap (runs --privileged)
+make site        # website preview at http://localhost:1313
 ```
 
 `main.go` is the CLI. `internal/policy` finds the root, loads and merges a policy with its includes, and scaffolds one.
 `internal/sandbox` resolves a policy into a `Plan` of absolute host paths and renders it as `bwrap` arguments or a
 Seatbelt profile. Both renderers are pure functions with golden tests. `test/e2e.sh` runs the same assertions on both
 platforms.
+
+`site/` is the Hugo project behind stonewall.sh. It mounts the README and `policies/` from the repository root, so
+the policy pages and `policies/_index.yml` are generated from the yml files; nothing is copied.
 
 `--dry-run` shows exactly what the backend receives. Start there when something is unexpectedly blocked or visible.
 

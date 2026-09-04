@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ if .IsHome }}{{ site.Title }}{{ else }}{{ .Title }} · {{ site.Title }}{{ end }}</title>
+<meta name="description" content="Kernel-enforced sandbox for AI coding agents">
+<link rel="icon" type="image/svg+xml" href="/docs/logo.svg">
+<link rel="apple-touch-icon" href="/docs/logo.png">
+<style>
+:root{--bg:#1B2027;--bg2:#232932;--fg:#C8CDD4;--mid:#A9B1BA;--dim:#8E97A1;--line:rgba(169,177,186,.18);--accent:#FF5F00;--accent2:#E4572E;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box}
+html{color-scheme:dark;background:var(--bg);color:var(--fg);font:16px/1.6 var(--sans)}
+body{margin:0;min-height:100vh;display:flex;flex-direction:column}
+a{color:var(--accent);text-decoration:none}a:hover{color:var(--accent2);text-decoration:underline}
+header{border-bottom:1px solid var(--line);background:rgba(27,32,39,.9);backdrop-filter:blur(6px);position:sticky;top:0}
+header .in,main,footer .in{max-width:880px;margin:0 auto;padding:0 20px;width:100%}
+header .in{display:flex;align-items:center;gap:14px;height:56px}
+header .brand{display:flex;align-items:center;gap:10px;font:600 17px var(--mono);color:var(--fg)}
+header .brand:hover{text-decoration:none}
+header .brand img{width:26px;height:26px;border-radius:4px}
+header .brand b{font-weight:inherit}header .brand span{color:var(--accent)}header .brand em{font-style:normal;color:var(--dim)}
+header nav{margin-left:auto;display:flex;gap:18px;font:14px var(--mono)}
+header nav a{color:var(--mid)}header nav a:hover,header nav a[aria-current]{color:var(--accent);text-decoration:none}
+main{flex:1;padding-top:32px;padding-bottom:64px}
+h1,h2,h3{font-family:var(--mono);color:var(--accent);line-height:1.25;letter-spacing:-.01em}
+h1{font-size:30px;margin:0 0 16px}h2{font-size:20px;margin:36px 0 12px;padding-top:12px;border-top:1px solid var(--line)}h3{font-size:16px;margin:24px 0 8px;color:var(--fg)}
+.lead{font-size:18px;color:var(--mid)}
+code,pre{font:14px/1.5 var(--mono)}
+code{background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+pre{background:var(--bg2);border:1px solid var(--line);border-left:3px solid var(--accent2);border-radius:6px;padding:12px 16px;overflow-x:auto}
+pre code{background:none;border:0;padding:0}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:16px 0}th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}th{background:var(--bg2);font-family:var(--mono);color:var(--mid)}
+hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+img{max-width:100%}
+.readme h1{color:var(--fg);font-size:36px}.readme h1 span{opacity:.45}.readme [align=center]{text-align:center}.readme [align=center] p{margin:8px 0}
+.notice{border:1px solid var(--accent2);border-radius:6px;padding:10px 14px;color:var(--mid);font-size:14px}
+.policy{padding:18px 0;border-bottom:1px solid var(--line)}.policy h2{border:0;padding:0;margin:0 0 8px}.policy p{margin:0 0 10px}.policy pre{margin:0}
+.crumb{font:13px var(--mono);color:var(--dim);margin:0 0 8px}.crumb a{color:var(--mid)}
+.source{border-left-color:var(--accent)}
+.chroma .c,.chroma .c1,.chroma .cm{color:var(--dim)}.chroma .nt,.chroma .k,.chroma .kd,.chroma .nb{color:var(--accent)}.chroma .s,.chroma .s1,.chroma .s2,.chroma .l,.chroma .m{color:var(--mid)}
+footer{border-top:1px solid var(--line);color:var(--dim);font:13px var(--mono)}footer .in{padding:18px 20px}footer a{color:var(--mid)}
+</style>
+</head>
+<body>
+<header><div class="in">
+  <a class="brand" href="/"><img src="/docs/logo.svg" alt=""><b><span>stonewall</span><em>.sh</em></b></a>
+  <nav>
+    <a href="/policies/"{{ if eq .Section "policies" }} aria-current="page"{{ end }}>Policies</a>
+    <a href="{{ site.Params.github }}">GitHub</a>
+  </nav>
+</div></header>
+<main>{{ block "main" . }}{{ end }}</main>
+<footer><div class="in">Stonewall.sh is open-source software licensed under <a href="/license/">MIT</a> · <a href="{{ site.Params.github }}">contribute on GitHub</a></div></footer>
+</body>
+</html>

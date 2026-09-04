@@ -54,8 +54,11 @@ func newRootCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "stonewall [options] <agent> [agent args...]",
-		Short: "kernel-enforced sandbox for AI coding agents",
-		Long:  "  Launches the <agent> inside a sandbox. What the agent can see, change and run is defined in the .stonewall.yml policy.",
+		Short: "Kernel-enforced sandbox for AI coding agents",
+		Long: "Stonewall is a local sandbox for AI coding agents, drastically limiting access to tools, paths and " +
+		  "project files, based on strictly enforced policies.\n" +
+			"\n" +
+			"Launches the <agent> inside a sandbox. What the agent can see, change and run is defined in the .stonewall.yml policy.",
 		Example: "  stonewall claude                  Run Claude Code in a stonewall sandbox\n" +
 			"  stonewall claude --resume         Pass arguments to the agent\n" +
 			"  stonewall -n codex                Print sandbox config, launch nothing\n" +
@@ -120,7 +123,8 @@ func newRootCmd() *cobra.Command {
 
   Use "{{.CommandPath}} <command> --help" for more about a command.{{end}}
 
-{{dim "Visit https://stonewall.sh for more information or contribute on https://github.com/stonewall-sh/stonewall."}}
+Stonewall.sh is open-source software licensed under MIT. Visit {{dim "https://stonewall.sh"}} for more information or contribute on {{dim "https://github.com/stonewall-sh/stonewall"}}.
+
 `)
 
 	policyCmd := &cobra.Command{

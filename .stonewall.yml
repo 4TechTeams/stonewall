@@ -16,5 +16,5 @@ expose:
   read:
     - ~/.gitconfig
 include:
-  - policy/base.yml
-  - policy/claude.yml
+  - policies/base.yml
+  - policies/claude.yml
