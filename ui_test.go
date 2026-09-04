@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -58,10 +59,10 @@ func TestUIRows(t *testing.T) {
 func TestBlockAndConfirm(t *testing.T) {
 	var buf bytes.Buffer
 	u := ui{w: &buf, plain: true}
-	u.block("stonewall will create .stonewall.yml", "include:\n  - https://stonewall.sh/policy/base.yml\n")
+	u.block("stonewall will create .stonewall.yml", "include:\n  - https://stonewall.sh/policies/base.yml\n")
 	want := "stonewall will create .stonewall.yml\n" +
 		"  include:\n" +
-		"    - https://stonewall.sh/policy/base.yml\n"
+		"    - https://stonewall.sh/policies/base.yml\n"
 	if buf.String() != want {
 		t.Errorf("block output:\n%q\nwant:\n%q", buf.String(), want)
 	}
@@ -95,5 +96,56 @@ func TestNewUI(t *testing.T) {
 	}
 	if !newUI(&bytes.Buffer{}, true).plain {
 		t.Error("newUI with plain=true should be plain")
+	}
+}
+
+func TestPick(t *testing.T) {
+	var buf bytes.Buffer
+	u := ui{w: &buf, plain: true}
+	items := []pickItem{
+		{Label: "Base", Detail: "Bare minimum safety net.", Checked: true},
+		{Label: "Claude Code", Detail: "The minimum for Claude Code."},
+	}
+	defer func() { stdin = os.Stdin }()
+
+	// down, tick Claude, down again (stays), up, untick Base, enter; "y\n" is left for the next prompt
+	stdin = strings.NewReader("\x1b[B j\x1b[A \ry\n")
+	got, ok := u.pick("official policies", "space toggles", items)
+	if !ok || !reflect.DeepEqual(got, []bool{false, true}) {
+		t.Fatalf("pick: got %v ok %v", got, ok)
+	}
+	for _, want := range []string{"official policies", "space toggles", "[x] Base", "[ ] Claude Code", "> [x] Claude Code", "[ ] Base", "      Bare minimum safety net."} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("output missing %q:\n%s", want, buf.String())
+		}
+	}
+	if !u.confirm("next") {
+		t.Error("bytes after enter were swallowed instead of left for confirm")
+	}
+	if !items[0].Checked {
+		t.Error("pick changed its input")
+	}
+
+	stdin = strings.NewReader("\x1b")
+	if _, ok := u.pick("t", "h", items); ok {
+		t.Error("esc did not cancel")
+	}
+	stdin = strings.NewReader("q")
+	if _, ok := u.pick("t", "h", items); ok {
+		t.Error("q did not cancel")
+	}
+	stdin = strings.NewReader("")
+	if _, ok := u.pick("t", "h", items); ok {
+		t.Error("EOF did not cancel")
+	}
+}
+
+func TestWrap(t *testing.T) {
+	got := wrap("aa bb cc dd", 5)
+	if !reflect.DeepEqual(got, []string{"aa bb", "cc dd"}) {
+		t.Errorf("wrap: %q", got)
+	}
+	if got := wrap("", 5); got != nil {
+		t.Errorf("wrap empty: %q", got)
 	}
 }

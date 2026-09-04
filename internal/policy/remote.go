@@ -159,7 +159,7 @@ func (r *resolve) cacheFile(u, hash string) string {
 	return filepath.Join(r.cacheDir(), cacheName(u)+"-"+hash+".yml")
 }
 
-// cacheName is the URL's file name without extension, e.g. "claude" for .../policy/claude.yml.
+// cacheName is the URL's file name without extension, e.g. "claude" for .../policies/claude.yml.
 func cacheName(raw string) string {
 	u, err := url.Parse(raw)
 	if err != nil {
@@ -420,9 +420,8 @@ func httpsOnly(req *http.Request, via []*http.Request) error {
 	return nil
 }
 
-// download fetches u and returns the body with its sha256, refusing anything but a 200 under 1 MiB
-// that parses as a policy without includes of its own. Nothing is cached before this passes.
-func (l Loader) download(u string) ([]byte, string, error) {
+// fetch gets u over https and returns the body, refusing anything but a 200 under 1 MiB.
+func (l Loader) fetch(u string) ([]byte, error) {
 	client := l.Client
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
@@ -431,18 +430,28 @@ func (l Loader) download(u string) ([]byte, string, error) {
 	c.CheckRedirect = httpsOnly
 	resp, err := c.Get(u)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, "", errors.New(resp.Status)
+		return nil, errors.New(resp.Status)
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxInclude+1))
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	if len(body) > maxInclude {
-		return nil, "", errors.New("larger than 1 MiB")
+		return nil, errors.New("larger than 1 MiB")
+	}
+	return body, nil
+}
+
+// download fetches a policy and returns the body with its sha256, refusing anything that does not parse as
+// a policy without includes of its own. Nothing is cached before this passes.
+func (l Loader) download(u string) ([]byte, string, error) {
+	body, err := l.fetch(u)
+	if err != nil {
+		return nil, "", err
 	}
 	p, err := Parse(body)
 	if err != nil {

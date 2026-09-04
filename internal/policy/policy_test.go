@@ -188,20 +188,20 @@ func TestFindRoot(t *testing.T) {
 
 func TestScaffold(t *testing.T) {
 	claude := Scaffold("/opt/bin/claude")
-	for _, want := range []string{"https://stonewall.sh/policy/base.yml", "https://stonewall.sh/policy/claude.yml"} {
+	for _, want := range []string{"https://stonewall.sh/policies/base.yml", "https://stonewall.sh/policies/claude.yml"} {
 		if !strings.Contains(claude, want) {
 			t.Errorf("claude scaffold missing %s:\n%s", want, claude)
 		}
 	}
 	sh := Scaffold("sh")
-	if !strings.Contains(sh, "https://stonewall.sh/policy/base.yml") || strings.Contains(sh, "claude.yml") {
+	if !strings.Contains(sh, "https://stonewall.sh/policies/base.yml") || strings.Contains(sh, "claude.yml") {
 		t.Errorf("sh scaffold wrong:\n%s", sh)
 	}
 	p, err := Parse([]byte(claude))
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Policy{Include: []string{"https://stonewall.sh/policy/base.yml", "https://stonewall.sh/policy/claude.yml"}}
+	want := Policy{Include: []string{"https://stonewall.sh/policies/base.yml", "https://stonewall.sh/policies/claude.yml"}}
 	if !reflect.DeepEqual(p, want) {
 		t.Fatalf("parsed scaffold: got %+v want %+v", p, want)
 	}
@@ -212,5 +212,26 @@ func TestScaffold(t *testing.T) {
 	}
 	if err := WriteScaffold(path, claude); err == nil {
 		t.Fatal("overwrote existing policy")
+	}
+}
+
+func TestMeta(t *testing.T) {
+	p, err := Parse([]byte("policy:\n  name: Base\n  url: https://stonewall.sh/policies/base.yml\n  description: >\n    Bare minimum.\nbin:\n  allowed: [cat]\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := &Meta{Name: "Base", URL: "https://stonewall.sh/policies/base.yml", Description: "Bare minimum.\n"}
+	if !reflect.DeepEqual(p.Meta, want) {
+		t.Fatalf("meta: got %+v want %+v", p.Meta, want)
+	}
+	eff, err := Merge(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if eff.Meta != nil {
+		t.Fatal("merge kept the meta")
+	}
+	if _, err := Parse([]byte("policy:\n  author: x\n")); err == nil {
+		t.Fatal("unknown meta key accepted")
 	}
 }

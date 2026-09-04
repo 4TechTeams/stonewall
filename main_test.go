@@ -2,10 +2,16 @@ package main
 
 import (
 	"bytes"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stonewall-sh/stonewall/v2/internal/policy"
 )
 
 func TestRootCmd(t *testing.T) {
@@ -116,4 +122,61 @@ func TestRootCmd(t *testing.T) {
 			t.Errorf("--weird was parsed as a stonewall flag: %v", err)
 		}
 	})
+}
+
+func TestPickPolicies(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_index.yml" {
+			fmt.Fprintf(w, "policies:\n  - name: Base\n    url: %[1]s/base.yml\n    description: Bare minimum.\n  - name: Claude Code\n    url: %[1]s/claude.yml\n    description: For Claude Code.\n", srv.URL)
+			return
+		}
+		io.WriteString(w, "bin:\n  allowed: [cat]\n")
+	}))
+	defer srv.Close()
+	defer func(u string) { policy.IndexURL = u }(policy.IndexURL)
+	policy.IndexURL = srv.URL + "/_index.yml"
+	httpClient = srv.Client()
+	defer func() { httpClient = nil }()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".stonewall.yml")
+	if err := os.WriteFile(path, []byte("include:\n  - "+srv.URL+"/base.yml\nbin:\n  allowed: [sh]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// down, tick Claude, up, untick Base, enter; then "y" trusts the new remote policy
+	stdin = strings.NewReader("\x1b[B \x1b[A \ry\n")
+	defer func() { stdin = os.Stdin }()
+
+	cmd := newRootCmd()
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs([]string{"--plain", "-p", path, "policy", "pick"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("pick: %v", err)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), "/base.yml") || !strings.Contains(string(b), "  - "+srv.URL+"/claude.yml\n") {
+		t.Errorf("include list after pick:\n%s", b)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".stonewall", "policies", "lock.yml")); err != nil {
+		t.Errorf("new include was not reviewed and cached: %v", err)
+	}
+
+	// Esc leaves the file alone.
+	before := string(b)
+	stdin = strings.NewReader("\x1b")
+	cmd = newRootCmd()
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs([]string{"--plain", "-p", path, "policy", "pick"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("cancelled pick: %v", err)
+	}
+	if after, _ := os.ReadFile(path); string(after) != before {
+		t.Errorf("cancel changed the file:\n%s", after)
+	}
 }

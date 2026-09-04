@@ -4,6 +4,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -11,6 +12,7 @@ import (
 	"regexp"
 	"runtime"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"syscall"
 
@@ -35,6 +37,9 @@ func init() {
 // which never reach PersistentPreRunE; it is still TTY-aware.
 var out ui
 
+// httpClient fetches remote policies and the index; nil means the default. Tests inject an httptest client.
+var httpClient *http.Client
+
 // exitError carries the process exit code out of RunE.
 type exitError struct {
 	code int
@@ -56,7 +61,7 @@ func newRootCmd() *cobra.Command {
 		Use:   "stonewall [options] <agent> [agent args...]",
 		Short: "Kernel-enforced sandbox for AI coding agents",
 		Long: "Stonewall is a local sandbox for AI coding agents, drastically limiting access to tools, paths and " +
-		  "project files, based on strictly enforced policies.\n" +
+			"project files, based on strictly enforced policies.\n" +
 			"\n" +
 			"Launches the <agent> inside a sandbox. What the agent can see, change and run is defined in the .stonewall.yml policy.",
 		Example: "  stonewall claude                  Run Claude Code in a stonewall sandbox\n" +
@@ -151,6 +156,12 @@ Stonewall.sh is open-source software licensed under MIT. Visit {{dim "https://st
 		Args:  cobra.ExactArgs(1),
 		RunE:  func(cmd *cobra.Command, args []string) error { return removePolicy(policyPath, args[0]) },
 	})
+	policyCmd.AddCommand(&cobra.Command{
+		Use:   "pick",
+		Short: "Pick official policies to include, interactively",
+		Args:  cobra.NoArgs,
+		RunE:  func(cmd *cobra.Command, args []string) error { return pickPolicies(policyPath) },
+	})
 	cmd.AddCommand(policyCmd)
 
 	return cmd
@@ -160,6 +171,7 @@ Stonewall.sh is open-source software licensed under MIT. Visit {{dim "https://st
 // accepted at the staleness prompt the way `policy update` does.
 func newLoader() policy.Loader {
 	return policy.Loader{
+		Client: httpClient,
 		Ask: func(title, body, question string) bool {
 			out.block(title, body)
 			return out.confirm(question)
@@ -255,6 +267,78 @@ func includePolicy(policyPath, inc string) error {
 	} else if err == nil {
 		fmt.Fprintln(out.w, out.paint("1", "Policy include for "+inc+" already in "+policyPath+"."))
 	}
+	reportUpdates(results)
+	switch {
+	case notTrusted(err):
+		return exitError{code: 1}
+	case err != nil && len(results) > 0:
+		return exitError{code: 1}
+	case err != nil:
+		return exitError{1, err}
+	}
+	return nil
+}
+
+// pickPolicies lists the official policies from the index as a checkbox list, ticked where the project
+// already includes them, and applies the difference: unticked ones are removed, newly ticked ones are added
+// and reviewed right away, as `policy include` does.
+func pickPolicies(policyPath string) error {
+	if !interactive() {
+		return exitError{1, errors.New("pick needs a terminal; use stonewall policy include <url>")}
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return exitError{1, err}
+	}
+	if policyPath == "" {
+		policyPath = filepath.Join(policy.FindRoot(cwd), policy.FileName)
+	}
+	local, err := policy.Load(policyPath)
+	if err != nil {
+		return exitError{1, err}
+	}
+	l := newLoader()
+	index, err := l.Index()
+	if err != nil {
+		return exitError{1, err}
+	}
+	if len(index) == 0 {
+		return exitError{1, fmt.Errorf("%s lists no policies", policy.IndexURL)}
+	}
+	items := make([]pickItem, len(index))
+	for i, e := range index {
+		label := e.Name
+		if label == "" {
+			label = e.URL
+		}
+		items[i] = pickItem{Label: label, Detail: e.Description, Checked: slices.Contains(local.Include, e.URL)}
+	}
+	title := "official policies from " + strings.TrimSuffix(policy.IndexURL, "/_index.yml")
+	checked, ok := out.pick(title, "↑↓ move · space toggle · enter apply · esc cancel", items)
+	if !ok {
+		fmt.Fprintln(out.w, out.paint("1", "Nothing changed."))
+		return nil
+	}
+	added := false
+	for i, e := range index {
+		switch {
+		case checked[i] && !items[i].Checked:
+			if _, err := policy.AddInclude(policyPath, e.URL); err != nil {
+				return exitError{1, err}
+			}
+			fmt.Fprintln(out.w, out.paint("1", "Added policy include for "+e.URL+" to "+policyPath+"."))
+			added = true
+		case !checked[i] && items[i].Checked:
+			if _, err := policy.Remove(policyPath, e.URL); err != nil {
+				return exitError{1, err}
+			}
+			fmt.Fprintln(out.w, out.paint("1", "Removed policy include for "+e.URL+" from "+policyPath+"."))
+		}
+	}
+	if !added {
+		return nil
+	}
+	results, err := l.Update(policyPath)
 	reportUpdates(results)
 	switch {
 	case notTrusted(err):

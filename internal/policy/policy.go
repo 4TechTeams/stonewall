@@ -18,8 +18,16 @@ import (
 // FileName is the repo-local policy file, found at the project root.
 const FileName = ".stonewall.yml"
 
+// Meta describes a policy to people and to the policy index. It has no effect on the sandbox.
+type Meta struct {
+	Name        string `yaml:"name,omitempty"`
+	URL         string `yaml:"url,omitempty"`
+	Description string `yaml:"description,omitempty"`
+}
+
 // Policy is a parsed .stonewall.yml. All fields are optional.
 type Policy struct {
+	Meta    *Meta    `yaml:"policy,omitempty"`  // who and what the policy is; Merge drops it
 	Include []string `yaml:"include,omitempty"` // policies applied before this file, in order; local paths or https:// URLs
 	Bin     Bin      `yaml:"bin"`
 	Project Project  `yaml:"project"`
@@ -99,9 +107,9 @@ var scaffoldYML string
 // Scaffold renders scaffold.yml for a project whose first launch runs agent: the base policy, plus the
 // Claude Code policy when the agent is claude.
 func Scaffold(agent string) string {
-	includes := []string{"https://stonewall.sh/policy/base.yml"}
+	includes := []string{"https://stonewall.sh/policies/base.yml"}
 	if strings.HasPrefix(filepath.Base(agent), "claude") {
-		includes = append(includes, "https://stonewall.sh/policy/claude.yml")
+		includes = append(includes, "https://stonewall.sh/policies/claude.yml")
 	}
 	var b strings.Builder
 	if err := template.Must(template.New("scaffold").Parse(scaffoldYML)).Execute(&b, struct{ Includes []string }{includes}); err != nil {

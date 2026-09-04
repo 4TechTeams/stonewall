@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 // stdin is where confirm reads the answer. Tests swap it.
@@ -102,4 +105,159 @@ func (u ui) error(err error) {
 		return
 	}
 	fmt.Fprintf(u.w, "%s  %s  %s\n", u.paint("1;38;5;202", "stonewall"), u.paint("1;31", "error   "), err)
+}
+
+// pickItem is one row of pick: a label, a dimmed detail paragraph under it, and whether it starts ticked.
+type pickItem struct {
+	Label, Detail string
+	Checked       bool
+}
+
+// interactive reports whether stdin can drive the picker: a terminal, or a test's reader.
+func interactive() bool {
+	f, ok := stdin.(*os.File)
+	return !ok || term.IsTerminal(int(f.Fd()))
+}
+
+// rawMode puts a terminal stdin into raw mode and returns the restore function; a test's reader gets a no-op.
+func rawMode() (func(), error) {
+	f, ok := stdin.(*os.File)
+	if !ok || !term.IsTerminal(int(f.Fd())) {
+		return func() {}, nil
+	}
+	state, err := term.MakeRaw(int(f.Fd()))
+	if err != nil {
+		return nil, err
+	}
+	return func() { term.Restore(int(f.Fd()), state) }, nil
+}
+
+// width is the terminal width of u.w, or 80 when it is not a terminal.
+func (u ui) width() int {
+	if f, ok := u.w.(*os.File); ok {
+		if w, _, err := term.GetSize(int(f.Fd())); err == nil && w > 20 {
+			return w
+		}
+	}
+	return 80
+}
+
+// keyReader hands out one key per call: a byte, or an arrow escape sequence whole. It reads whatever a
+// terminal delivers per key press; what a test feeds beyond one key is kept for the next call, and the
+// picker gives the rest back to stdin when it returns, so a prompt after it reads the right bytes.
+type keyReader struct {
+	r   io.Reader
+	buf []byte
+}
+
+func (k *keyReader) next() (string, error) {
+	if len(k.buf) == 0 {
+		var b [32]byte
+		n, err := k.r.Read(b[:])
+		if n == 0 {
+			if err == nil {
+				err = io.EOF
+			}
+			return "", err
+		}
+		k.buf = append(k.buf, b[:n]...)
+	}
+	n := 1
+	if k.buf[0] == 0x1b && len(k.buf) >= 3 && k.buf[1] == '[' && (k.buf[2] == 'A' || k.buf[2] == 'B') {
+		n = 3
+	}
+	key := string(k.buf[:n])
+	k.buf = k.buf[n:]
+	return key, nil
+}
+
+// pick shows items as a checkbox list under title and hint and returns which are ticked when Enter is
+// pressed. ok is false when the user cancels with Esc, q, Ctrl-C or end of input. Up/k and Down/j move,
+// Space toggles. The block is redrawn in place on every key.
+func (u ui) pick(title, hint string, items []pickItem) (checked []bool, ok bool) {
+	restore, err := rawMode()
+	if err != nil {
+		return nil, false
+	}
+	defer restore()
+	keys := &keyReader{r: stdin}
+	defer func() {
+		if len(keys.buf) > 0 {
+			stdin = io.MultiReader(bytes.NewReader(keys.buf), stdin)
+		}
+	}()
+
+	checked = make([]bool, len(items))
+	for i, it := range items {
+		checked[i] = it.Checked
+	}
+	cur, lines, width := 0, 0, u.width()
+	render := func() {
+		var b strings.Builder
+		if lines > 0 {
+			fmt.Fprintf(&b, "\x1b[%dA\x1b[J", lines) // back to the top of the block and clear it
+		}
+		lines = 0
+		put := func(s string) { b.WriteString(s + "\r\n"); lines++ } // raw mode does not translate \n
+		put(u.paint("1;38;5;202", "stonewall") + "  " + title)
+		put(strings.Repeat(" ", len("stonewall")) + "  " + u.paint("2", hint))
+		put("")
+		for i, it := range items {
+			mark, arrow := "[ ]", "  "
+			if checked[i] {
+				mark = u.paint("1;38;5;202", "[x]")
+			}
+			if i == cur {
+				arrow = u.paint("1;38;5;202", ">") + " "
+			}
+			put(arrow + mark + " " + u.paint("1", it.Label))
+			for _, l := range wrap(it.Detail, width-6) {
+				put("      " + u.paint("2", l))
+			}
+		}
+		fmt.Fprint(u.w, b.String())
+	}
+	for {
+		render()
+		key, err := keys.next()
+		if err != nil {
+			return nil, false
+		}
+		switch key {
+		case "\x1b[A", "k":
+			if cur > 0 {
+				cur--
+			}
+		case "\x1b[B", "j":
+			if cur < len(items)-1 {
+				cur++
+			}
+		case " ":
+			checked[cur] = !checked[cur]
+		case "\r", "\n":
+			return checked, true
+		case "\x1b", "q", "\x03":
+			return nil, false
+		}
+	}
+}
+
+// wrap breaks s at spaces into lines of at most width characters; a longer single word stays whole.
+func wrap(s string, width int) []string {
+	var out []string
+	line := ""
+	for _, w := range strings.Fields(s) {
+		if line != "" && len(line)+1+len(w) > width {
+			out = append(out, line)
+			line = ""
+		}
+		if line != "" {
+			line += " "
+		}
+		line += w
+	}
+	if line != "" {
+		out = append(out, line)
+	}
+	return out
 }
