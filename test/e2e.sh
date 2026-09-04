@@ -66,7 +66,7 @@ fi
 # includes are not trusted yet. Fail closed, so ignore the exit.
 mkdir -p "$TMP/fresh/.git" "$TMP/fresh/sub"
 (cd "$TMP/fresh/sub" && "$BIN" --plain sh -c true) >/dev/null 2>&1 </dev/null || true
-if grep -q '^include:' "$TMP/fresh/.stonewall.yml" 2>/dev/null && grep -q 'stonewall.sh/policy/base.yml' "$TMP/fresh/.stonewall.yml"; then
+if grep -q '^include:' "$TMP/fresh/.stonewall.yml" 2>/dev/null && grep -q 'stonewall.sh/policies/base.yml' "$TMP/fresh/.stonewall.yml"; then
 	echo "ok    first run scaffolds .stonewall.yml at the project root"
 else
 	echo "FAIL  scaffold"; fail=1
